@@ -17,9 +17,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install mcp-assure (the gate the planes route through)
+      - name: Install mcp-assure (the gate the planes route through) + pytest
         run: |
           python -m pip install -U pip
-          pip install "mcp-assure==0.3.2"
+          pip install "mcp-assure==0.3.2" pytest
       - name: Cannot-bypass smoke (offline gate proofs, no bridge)
         run: python smoke/cannot_bypass_planes.py --offline
+      - name: Gated shell.exec proof (interpreter-free, path-confined)
+        run: pytest tests/ -q

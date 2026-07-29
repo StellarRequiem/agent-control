@@ -52,6 +52,38 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
 MAX_READ_BYTES = 64_000
 MAX_LIST = 200
 
+# --- gated shell.exec: validated argv, never a shell string -----------------
+# The whole point is to give Grok a *host-gated* path for the file/test/git work
+# the router used to send to its ungated NATIVE shell. Security is by
+# construction, not by blocklisting a shell string:
+#   * shell=False always — argv is passed to execve, so ; | & $ ` are inert
+#     literals, not operators. There is no shell to interpret them.
+#   * INTERPRETERS ARE INTENTIONALLY ABSENT. Allowlisting python/node/bash would
+#     make `python3 -c "..."` a total bypass, so an executable allowlist that
+#     included them would be a false gate.
+#   * only read/inspect binaries, with per-binary escape hatches denied.
+SAFE_EXECUTABLES = frozenset(
+    {"git", "ls", "cat", "head", "tail", "wc", "rg", "grep", "find", "echo", "true"}
+)
+# blocked even if someone adds them — these run arbitrary code from an arg
+INTERPRETERS = frozenset(
+    {"python", "python3", "node", "bash", "sh", "zsh", "ruby", "perl",
+     "awk", "gawk", "env", "xargs", "eval", "make", "npm", "pip", "pip3"}
+)
+# arg-level escape hatches on otherwise-safe binaries (find -exec, git -c, …)
+DANGEROUS_FLAGS = frozenset(
+    {"-exec", "-execdir", "-delete", "-ok", "-okdir", "-fprintf", "-fprint",
+     "-c", "-C", "--exec-path", "--upload-pack", "--receive-pack",
+     "-e", "--eval", "-o", "--output", "-O"}
+)
+# git may only READ — no config/hooks/push/fetch that can run code or leave scope
+GIT_READ_SUBCMDS = frozenset(
+    {"status", "diff", "log", "show", "branch", "rev-parse", "ls-files",
+     "describe", "blame", "shortlog", "tag", "remote"}
+)
+MAX_ARGV = 40
+MAX_TOKEN = 512
+
 
 class ShellHandlers:
     def __init__(self, roots: tuple[Path, ...] | None = None) -> None:
@@ -177,6 +209,88 @@ class ShellHandlers:
                 "is_file": resolved.is_file(),
                 "size": st.st_size,
                 "mtime": st.st_mtime,
+            },
+        }
+
+    def exec(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Run a validated argv (never a shell string) through the gate.
+
+        Deny-by-default: interpreter-free executable allowlist, per-binary
+        dangerous-flag denylist, git read-subcommands only, path confinement
+        (no absolute paths, no parent traversal), rooted cwd, shell=False.
+        This is the covered path meant to replace Grok's native shell for
+        file/test/git inspection — it is NOT a general bash.
+        """
+        argv = args.get("argv")
+        if not isinstance(argv, list) or not argv or not all(isinstance(t, str) for t in argv):
+            return {"ok": False, "code": "ARGV_REQUIRED", "detail": "argv must be a non-empty list of strings"}
+        if len(argv) > MAX_ARGV:
+            return {"ok": False, "code": "ARGV_TOO_LONG", "detail": f"max {MAX_ARGV} tokens"}
+        if any(len(t) > MAX_TOKEN for t in argv):
+            return {"ok": False, "code": "TOKEN_TOO_LONG", "detail": f"max {MAX_TOKEN} bytes/token"}
+
+        exe = Path(argv[0]).name
+        if exe in INTERPRETERS:
+            return {"ok": False, "code": "INTERPRETER_DENIED",
+                    "detail": f"{exe!r} can run arbitrary code from an argument — not gatable via exec"}
+        if exe not in SAFE_EXECUTABLES:
+            return {"ok": False, "code": "EXECUTABLE_NOT_ALLOWLISTED",
+                    "detail": f"{exe!r} not allowlisted", "allowed": sorted(SAFE_EXECUTABLES)}
+
+        # per-token: dangerous flags, absolute paths, parent traversal, newlines
+        for tok in argv[1:]:
+            if tok in DANGEROUS_FLAGS:
+                return {"ok": False, "code": "DANGEROUS_FLAG", "detail": f"flag {tok!r} can execute or escape scope"}
+            if "\n" in tok or "\r" in tok:
+                return {"ok": False, "code": "NEWLINE_IN_ARG", "detail": "newline in argument"}
+            if tok.startswith("/"):
+                return {"ok": False, "code": "ABSOLUTE_PATH_DENIED",
+                        "detail": f"absolute path {tok!r} — args must be relative to a rooted cwd"}
+            if ".." in Path(tok).parts:
+                return {"ok": False, "code": "PATH_TRAVERSAL", "detail": f"parent segment in {tok!r}"}
+
+        if exe == "git":
+            sub = argv[1] if len(argv) > 1 else ""
+            if sub not in GIT_READ_SUBCMDS:
+                return {"ok": False, "code": "GIT_SUBCOMMAND_DENIED",
+                        "detail": f"git {sub!r} not a read subcommand", "allowed": sorted(GIT_READ_SUBCMDS)}
+
+        # cwd: explicit (rooted) or first git root / package root
+        cwd_arg = str(args.get("cwd") or "").strip()
+        if cwd_arg:
+            resolved = self._resolve_under_root(cwd_arg)
+            if isinstance(resolved, dict):
+                return resolved
+            if not resolved.is_dir():
+                return {"ok": False, "code": "CWD_NOT_DIR", "detail": str(resolved)}
+            cwd = str(resolved)
+        else:
+            cwd = None
+            for r in self.roots:
+                if (r / ".git").exists():
+                    cwd = str(r)
+                    break
+            if cwd is None:
+                cwd = str(_PKG_ROOT)
+
+        try:
+            p = subprocess.run(
+                list(argv), cwd=cwd, capture_output=True, text=True, timeout=60, shell=False
+            )
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "code": "TIMEOUT", "detail": " ".join(argv[:3])}
+        except FileNotFoundError as e:
+            return {"ok": False, "code": "EXEC_MISSING", "detail": str(e)}
+
+        return {
+            "ok": p.returncode == 0,
+            "code": "RAN" if p.returncode == 0 else "NONZERO",
+            "data": {
+                "argv": list(argv),
+                "cwd": cwd,
+                "returncode": p.returncode,
+                "stdout": (p.stdout or "")[:20000],
+                "stderr": (p.stderr or "")[:5000],
             },
         }
 

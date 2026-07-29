@@ -13,7 +13,7 @@ AssuredPlaneHost          (this repo)
     │
     ├── browser.*  → browser-leash :8756
     ├── desktop.*  → desktop-leash :8757
-    ├── shell.*    → gated FS + named commands only
+    ├── shell.*    → gated FS + named commands + validated-argv shell.exec (interpreter-free)
     └── plane.*    → status + router (no ambient authority)
 ```
 
@@ -29,7 +29,11 @@ AssuredPlaneHost          (this repo)
 
 ## What is still *not* true
 
-- **Every Grok Build shell tool** is gated — only tools that route through this host  
+- **Every Grok Build shell tool** is gated — only tools that route through this host are gated.
+  A gated `shell.exec` (interpreter-free, read-only git, path-confined) now covers file/test/git
+  inspection, but Grok's **native runtime shell** still bypasses the host. Full coverage requires
+  the deployment to disable Grok's native shell and route through the host — the host provides the
+  mechanism, it cannot force the runtime. See `docs/SHELL_GATING.md`.
 - **Public product** for browser/desktop leashes — local  
 - **Human-equivalent unlimited CUA** — explicitly refused by design  
 

@@ -141,7 +141,9 @@ def run_smoke(*, live: bool = True) -> int:
     print(f"\ncannot_bypass_planes={'PASS' if all_ok else 'FAIL'}")
     print(
         "claim_note: plane tools gated through AssuredPlaneHost; "
-        "native Grok shell tools are NOT covered by this host yet."
+        "gated shell.exec (interpreter-free, read-only git, path-confined) now covers "
+        "file/test/git inspection; Grok's NATIVE runtime shell is still outside the host "
+        "— disable it or route through the host for full coverage."
     )
     return 0 if all_ok else 1
 

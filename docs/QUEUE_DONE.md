@@ -13,7 +13,8 @@ Closed when smoke + live checks pass on this host.
 
 ## Still intentionally false (design)
 
-- every Grok Build shell tool gated  
+- every Grok Build shell tool gated (native runtime shell still bypasses the host; a gated
+  `shell.exec` now covers file/test/git inspection — see `docs/SHELL_GATING.md`)  
 - auto-post without human  
 - full unlimited CUA  
 - full SOC  

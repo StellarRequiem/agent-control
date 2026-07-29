@@ -122,7 +122,7 @@ def route_task(task: str) -> Route:
     ):
         return Route(
             "shell",
-            "files/tests/git → native shell tools (not GUI type)",
+            "files/tests/git → host-gated shell.exec / shell.run (NOT native shell)",
             (),
             ("desktop.type", "browser.type"),
         )

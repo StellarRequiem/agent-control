@@ -2,7 +2,7 @@
   "meta": {
     "id": "local_planes",
     "description": "Planes + gated shell + CUA session tools. Deny-by-default. Not ambient OS control.",
-    "version": 4
+    "version": 5
   },
   "tools": {
     "plane.status": {
@@ -423,6 +423,23 @@
         "focus"
       ],
       "max_arg_bytes": 1024
+    },
+    "shell.exec": {
+      "description": "Run a validated argv (never a shell string) \u2014 interpreter-free allowlist, git read-only, path-confined, rooted cwd. Host-gated replacement for native shell.",
+      "max_blast": 2,
+      "required_args": [
+        "argv"
+      ],
+      "allowed_args": [
+        "argv",
+        "cwd"
+      ],
+      "max_arg_bytes": 8192,
+      "forbidden_args": [
+        "token",
+        "password",
+        "api_key"
+      ]
     }
   }
 }

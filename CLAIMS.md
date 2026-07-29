@@ -7,6 +7,7 @@
 | Assured host routes plane tools through mcp-assure AdaptiveGate | `host/plane_host.py`, smoke |
 | Session CUA with step/time budget | `cua.*` tools + persisted session |
 | Gated shell **subset** (named commands, rooted FS) | `shell.*` — no ambient `shell_exec` |
+| Gated `shell.exec` — validated argv, interpreter-free, read-only git, path-confined | `host/shell_handlers.py:exec`, `tests/test_shell_exec_gate.py` |
 | Dual human gates on x_post / quit / Return | handlers + smoke |
 
 ## Not allowed
