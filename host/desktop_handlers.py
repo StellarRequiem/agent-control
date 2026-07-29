@@ -111,6 +111,35 @@ class DesktopHandlers:
             body["out_dir"] = args["out_dir"]
         return http_json(self.base, "/v1/action", body)
 
+    def layout(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        body: dict[str, Any] = {"action": "desktop.layout"}
+        if args.get("path"):
+            body["path"] = args["path"]
+        return http_json(self.base, "/v1/action", body)
+
+    def screenshot_window(self, args: dict[str, Any]) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "action": "desktop.screenshot_window",
+            "app": args["app"],
+            "title": args.get("title") or "",
+        }
+        if args.get("path"):
+            body["path"] = args["path"]
+        return http_json(self.base, "/v1/action", body)
+
+    def click_window(self, args: dict[str, Any]) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "action": "desktop.click_window",
+            "app": args["app"],
+            "title": args.get("title") or "",
+            "focus": args.get("focus", True),
+        }
+        for k in ("rel_x", "rel_y", "local_x", "local_y"):
+            if args.get(k) is not None:
+                body[k] = args[k]
+        return http_json(self.base, "/v1/action", body)
+
     def d4_session(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
         open_session = bool(args.get("open"))

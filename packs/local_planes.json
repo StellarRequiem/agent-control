@@ -2,7 +2,7 @@
   "meta": {
     "id": "local_planes",
     "description": "Planes + gated shell + CUA session tools. Deny-by-default. Not ambient OS control.",
-    "version": 3
+    "version": 4
   },
   "tools": {
     "plane.status": {
@@ -385,6 +385,44 @@
         "arguments"
       ],
       "max_arg_bytes": 16384
+    },
+    "desktop.layout": {
+      "description": "Window frames + display geometry; required before GUI clicks",
+      "max_blast": 1,
+      "allowed_args": [
+        "path"
+      ],
+      "max_arg_bytes": 1024
+    },
+    "desktop.screenshot_window": {
+      "description": "Screenshot one app window by bounds",
+      "max_blast": 1,
+      "required_args": [
+        "app"
+      ],
+      "allowed_args": [
+        "app",
+        "title",
+        "path"
+      ],
+      "max_arg_bytes": 1024
+    },
+    "desktop.click_window": {
+      "description": "Click inside app window using rel_x/rel_y 0..1 or local_x/local_y",
+      "max_blast": 2,
+      "required_args": [
+        "app"
+      ],
+      "allowed_args": [
+        "app",
+        "title",
+        "rel_x",
+        "rel_y",
+        "local_x",
+        "local_y",
+        "focus"
+      ],
+      "max_arg_bytes": 1024
     }
   }
 }

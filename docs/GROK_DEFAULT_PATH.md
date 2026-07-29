@@ -17,6 +17,19 @@
 - **Receipts + AdaptiveGate** on plane tools  
 - **Session CUA budget** instead of open-ended RPA  
 - **agent-soc** detects high-blast churn / deny spikes  
+- **Layout first** — never full-screen click guessing (Terminal/Chrome split)  
+
+## Desktop GUI (tight control)
+
+```bash
+python3 ~/desktop-leash/bridge/client.py layout
+# frames_by_app: Chrome x=959 w=961 · Terminal x=0 w=960  (example split)
+
+python3 ~/desktop-leash/bridge/client.py shot-window --app "Google Chrome" --out /tmp/chrome.png
+python3 ~/desktop-leash/bridge/client.py click-window --app "Google Chrome" --rel-x 0.92 --rel-y 0.88
+```
+
+See `~/desktop-leash/docs/LAYOUT_CONTROL.md`.
 
 ## Commands (copy-paste)
 
