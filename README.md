@@ -45,3 +45,15 @@ python3 ~/agent-control/cli.py call browser.x_post --args-json '{"operator_confi
 ## Skill
 
 `/agent-control` → `~/.grok/skills/agent-control/SKILL.md`
+
+
+## License
+
+Apache-2.0
+
+## Related
+
+- [mcp-assure](https://github.com/StellarRequiem/mcp-assure) — tool-call gate
+- [browser-leash](https://github.com/StellarRequiem/browser-leash) — Chrome plane
+- [desktop-leash](https://github.com/StellarRequiem/desktop-leash) — macOS desktop plane
+- [agent-soc](https://github.com/StellarRequiem/agent-soc) — agent-plane SOC

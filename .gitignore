@@ -5,3 +5,22 @@ __pycache__/
 .venv/
 FREEZE
 *.jsonl
+
+# runtime / private
+receipts/
+captures/
+incidents/inc-*.json
+incidents/watch.jsonl
+incidents/watch.out.log
+incidents/index.jsonl
+FREEZE
+*.jsonl
+.state.json
+bridge/.state.json
+__pycache__/
+*.pyc
+.venv/
+dist/
+*.egg-info/
+.DS_Store
+receipts/cua-session.json
