@@ -11,8 +11,15 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+# This package's own install dir — so "read my own tree" works wherever the
+# repo is checked out (e.g. a CI runner where it is not under $HOME/agent-control).
+# Reading one's own source is benign and on the operator's machine this resolves
+# to the same path as Path.home()/"agent-control" below.
+_PKG_ROOT = Path(__file__).resolve().parents[1]
+
 # Roots agents may read/list (expand carefully)
 DEFAULT_ROOTS = (
+    _PKG_ROOT,
     Path.home() / "mcp-assure",
     Path.home() / "agent-control",
     Path.home() / "desktop-leash",
