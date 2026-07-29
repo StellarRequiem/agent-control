@@ -1,24 +1,61 @@
 {
   "meta": {
     "id": "desktop_app_profiles",
-    "description": "Per-app profiles for desktop-leash via agent-control host. Phase-5 start — host enforces; leash still has its own allow/deny.",
-    "version": 1
+    "description": "Per-app profiles for agent-control + desktop-leash CUA. Modes: strict (default) | cua (wider). Hard denylist always wins.",
+    "version": 2
   },
+  "mode": "cua",
   "default": {
-    "max_input_per_session": 80,
+    "max_input_per_session": 100,
     "allow_type": true,
     "allow_click": true,
     "allow_press": true,
     "allow_quit": false,
-    "notes": "Conservative default for unknown allowlisted apps"
+    "allow_ax_click": true,
+    "notes": "CUA default for allowlisted apps"
+  },
+  "modes": {
+    "strict": {
+      "description": "Conservative — editors/dev only",
+      "extra_allowlist": []
+    },
+    "cua": {
+      "description": "Wider CUA surface for productive apps; denylist still hard",
+      "extra_allowlist": [
+        "Visual Studio Code",
+        "Slack",
+        "Discord",
+        "Notion",
+        "Obsidian",
+        "Calendar",
+        "Reminders",
+        "Preview",
+        "QuickTime Player",
+        "zoom.us",
+        "Zoom",
+        "Microsoft Teams",
+        "Spotify",
+        "Arc",
+        "Brave Browser",
+        "Safari Technology Preview",
+        "Activity Monitor",
+        "Console",
+        "Dictionary",
+        "Calculator",
+        "Books",
+        "Photos",
+        "Music"
+      ]
+    }
   },
   "profiles": {
     "TextEdit": {
-      "max_input_per_session": 120,
+      "max_input_per_session": 150,
       "allow_type": true,
       "allow_click": true,
       "allow_press": true,
       "allow_quit": true,
+      "allow_ax_click": true,
       "notes": "Demo editor"
     },
     "Notes": {
@@ -27,70 +64,225 @@
       "allow_click": true,
       "allow_press": true,
       "allow_quit": false,
-      "notes": "Personal content — treat as private"
+      "allow_ax_click": true,
+      "notes": "Personal content — private"
     },
     "Terminal": {
-      "max_input_per_session": 20,
-      "allow_type": false,
-      "allow_click": true,
-      "allow_press": false,
-      "allow_quit": false,
-      "notes": "Prefer shell tools over GUI type/press (Return may execute)"
-    },
-    "iTerm2": {
-      "max_input_per_session": 20,
-      "allow_type": false,
-      "allow_click": true,
-      "allow_press": false,
-      "allow_quit": false,
-      "notes": "Prefer shell tools"
-    },
-    "Ghostty": {
-      "max_input_per_session": 20,
-      "allow_type": false,
-      "allow_click": true,
-      "allow_press": false,
-      "allow_quit": false,
-      "notes": "Prefer shell tools"
-    },
-    "Code": {
-      "max_input_per_session": 60,
-      "allow_type": true,
-      "allow_click": true,
-      "allow_press": true,
-      "allow_quit": false,
-      "notes": "Editor — still prefer shell for git/tests"
-    },
-    "Cursor": {
-      "max_input_per_session": 60,
-      "allow_type": true,
-      "allow_click": true,
-      "allow_press": true,
-      "allow_quit": false
-    },
-    "Google Chrome": {
-      "max_input_per_session": 10,
-      "allow_type": false,
-      "allow_click": false,
-      "allow_press": false,
-      "allow_quit": false,
-      "notes": "Prefer browser-leash for Chrome"
-    },
-    "Finder": {
       "max_input_per_session": 15,
       "allow_type": false,
       "allow_click": true,
       "allow_press": false,
       "allow_quit": false,
+      "allow_ax_click": true,
+      "notes": "Prefer shell tools; no GUI type/Return"
+    },
+    "iTerm2": {
+      "max_input_per_session": 15,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": false,
+      "allow_quit": false,
+      "allow_ax_click": true,
+      "notes": "Prefer shell tools"
+    },
+    "iTerm": {
+      "max_input_per_session": 15,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": false,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "Ghostty": {
+      "max_input_per_session": 15,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": false,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "Alacritty": {
+      "max_input_per_session": 15,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": false,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "Code": {
+      "max_input_per_session": 100,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": true,
+      "notes": "VS Code — prefer shell for git/tests"
+    },
+    "Visual Studio Code": {
+      "max_input_per_session": 100,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "Cursor": {
+      "max_input_per_session": 100,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "Google Chrome": {
+      "max_input_per_session": 8,
+      "allow_type": false,
+      "allow_click": false,
+      "allow_press": false,
+      "allow_quit": false,
+      "allow_ax_click": false,
+      "notes": "Prefer browser-leash"
+    },
+    "Chromium": {
+      "max_input_per_session": 8,
+      "allow_type": false,
+      "allow_click": false,
+      "allow_press": false,
+      "allow_quit": false,
+      "allow_ax_click": false,
+      "notes": "Prefer browser-leash"
+    },
+    "Safari": {
+      "max_input_per_session": 20,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": true,
+      "notes": "Non-Chrome browser OK for CUA when needed"
+    },
+    "Firefox": {
+      "max_input_per_session": 20,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "Arc": {
+      "max_input_per_session": 20,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "Finder": {
+      "max_input_per_session": 25,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": false,
+      "allow_quit": false,
+      "allow_ax_click": true,
       "notes": "Limited file UI"
+    },
+    "Preview": {
+      "max_input_per_session": 40,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "Slack": {
+      "max_input_per_session": 60,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": true,
+      "notes": "Work chat — treat content private; no auto-send Return without D4"
+    },
+    "Discord": {
+      "max_input_per_session": 40,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "Notion": {
+      "max_input_per_session": 80,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "Obsidian": {
+      "max_input_per_session": 80,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "zoom.us": {
+      "max_input_per_session": 20,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": false,
+      "allow_quit": false,
+      "allow_ax_click": true,
+      "notes": "Meetings — no mute/quit automation by default"
+    },
+    "Zoom": {
+      "max_input_per_session": 20,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": false,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "Spotify": {
+      "max_input_per_session": 20,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": false,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "Calendar": {
+      "max_input_per_session": 30,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": true
+    },
+    "System Settings": {
+      "max_input_per_session": 5,
+      "allow_type": false,
+      "allow_click": false,
+      "allow_press": false,
+      "allow_quit": false,
+      "allow_ax_click": false,
+      "notes": "Observe/focus only — no privacy deep path automation"
     }
   },
   "denylist_hard": [
     "1Password",
+    "1Password 7",
     "Bitwarden",
     "Keychain Access",
     "Passwords",
+    "Wallet",
     "Mail",
-    "Messages"
+    "Messages",
+    "Banking",
+    "Coinbase",
+    "Ledger Live",
+    "Authy",
+    "Microsoft Authenticator"
   ]
 }

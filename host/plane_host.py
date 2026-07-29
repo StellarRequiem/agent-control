@@ -34,6 +34,7 @@ from host.http_util import http_json  # noqa: E402
 from host.router import route_task  # noqa: E402
 from host.shell_handlers import ShellHandlers  # noqa: E402
 from host.cua_loop import CuaController  # noqa: E402
+from host.profile_mode import profile_summary  # noqa: E402
 
 PACK_PATH = ROOT / "packs" / "local_planes.json"
 RECEIPTS = ROOT / "receipts" / "plane-host.jsonl"
@@ -200,11 +201,17 @@ class AssuredPlaneHost:
                 "enterprise_soc": False,
             },
             "cua": self.cua.status() if self.cua else {"active": False},
+            "profiles": profile_summary(),
+            "default_path_doc": str(ROOT / "docs" / "GROK_DEFAULT_PATH.md"),
             "shell": {
                 "roots": [str(r) for r in self.shell.roots],
                 "named_commands": sorted(
                     __import__("host.shell_handlers", fromlist=["ALLOW_COMMANDS"]).ALLOW_COMMANDS.keys()
                 ),
+            },
+            "soc": {
+                "cli": str(Path.home() / "agent-soc" / "cli.py"),
+                "watch": "python3 ~/agent-soc/cli.py watch --interval 30",
             },
         }
 
