@@ -1,8 +1,8 @@
 {
   "meta": {
     "id": "local_planes",
-    "description": "Grok local control planes: browser-leash + desktop-leash + gated shell subset + plane health. Deny-by-default; high-blast requires operator_confirm in host.",
-    "version": 2
+    "description": "Planes + gated shell + CUA session tools. Deny-by-default. Not ambient OS control.",
+    "version": 3
   },
   "tools": {
     "plane.status": {
@@ -307,6 +307,84 @@
         "ttl"
       ],
       "max_arg_bytes": 256
+    },
+    "desktop.ax_click": {
+      "description": "CUA: click AX-matched UI element in frontmost allowlisted app",
+      "max_blast": 2,
+      "allowed_args": [
+        "role",
+        "title",
+        "description",
+        "index"
+      ],
+      "max_arg_bytes": 1024
+    },
+    "desktop.region_screenshot": {
+      "description": "Region screenshot",
+      "max_blast": 1,
+      "required_args": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "allowed_args": [
+        "x",
+        "y",
+        "w",
+        "h",
+        "path"
+      ],
+      "max_arg_bytes": 512
+    },
+    "desktop.cua_observe": {
+      "description": "CUA observe bundle: frontmost+apps+ax+screenshot",
+      "max_blast": 1,
+      "allowed_args": [
+        "out_dir"
+      ],
+      "max_arg_bytes": 1024
+    },
+    "cua.start": {
+      "description": "Start budgeted CUA session",
+      "max_blast": 1,
+      "allowed_args": [
+        "max_steps",
+        "max_seconds"
+      ],
+      "max_arg_bytes": 256
+    },
+    "cua.stop": {
+      "description": "Stop CUA session",
+      "max_blast": 1,
+      "allowed_args": [
+        "reason"
+      ],
+      "max_arg_bytes": 512
+    },
+    "cua.status": {
+      "description": "CUA session status",
+      "max_blast": 1,
+      "allowed_args": [],
+      "max_arg_bytes": 64
+    },
+    "cua.observe": {
+      "description": "Multi-plane CUA observe",
+      "max_blast": 1,
+      "allowed_args": [],
+      "max_arg_bytes": 64
+    },
+    "cua.step": {
+      "description": "One gated CUA step (tool + arguments)",
+      "max_blast": 2,
+      "required_args": [
+        "tool"
+      ],
+      "allowed_args": [
+        "tool",
+        "arguments"
+      ],
+      "max_arg_bytes": 16384
     }
   }
 }

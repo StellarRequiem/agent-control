@@ -33,6 +33,7 @@ from host.desktop_handlers import DesktopHandlers  # noqa: E402
 from host.http_util import http_json  # noqa: E402
 from host.router import route_task  # noqa: E402
 from host.shell_handlers import ShellHandlers  # noqa: E402
+from host.cua_loop import CuaController  # noqa: E402
 
 PACK_PATH = ROOT / "packs" / "local_planes.json"
 RECEIPTS = ROOT / "receipts" / "plane-host.jsonl"
@@ -82,6 +83,8 @@ class AssuredPlaneHost:
         self.shell = ShellHandlers()
         self.browser_base = browser_base
         self.desktop_base = desktop_base
+        # CuaController bound after dispatcher exists — methods use self.cua
+        self.cua: CuaController | None = None
 
         handlers = {
             "plane.status": self._plane_status,
@@ -99,6 +102,9 @@ class AssuredPlaneHost:
             "desktop.apps": self.desktop.apps,
             "desktop.windows": self.desktop.windows,
             "desktop.ax": self.desktop.ax,
+            "desktop.ax_click": self.desktop.ax_click,
+            "desktop.region_screenshot": self.desktop.region_screenshot,
+            "desktop.cua_observe": self.desktop.cua_observe,
             "desktop.d4_session": self.desktop.d4_session,
             "desktop.screenshot": self.desktop.screenshot,
             "desktop.focus": self.desktop.focus,
@@ -113,6 +119,11 @@ class AssuredPlaneHost:
             "shell.read_file": self.shell.read_file,
             "shell.stat": self.shell.stat,
             "shell.run": self.shell.run,
+            "cua.start": self._cua_start,
+            "cua.stop": self._cua_stop,
+            "cua.status": self._cua_status,
+            "cua.observe": self._cua_observe,
+            "cua.step": self._cua_step,
         }
 
         self._dispatcher = AssuredToolDispatcher(
@@ -123,6 +134,31 @@ class AssuredPlaneHost:
             adaptive=adaptive,
             auto_freeze=True,
         )
+        self.cua = CuaController(self.call)
+
+    def _cua_start(self, a: dict[str, Any] | None = None) -> dict[str, Any]:
+        a = a or {}
+        assert self.cua is not None
+        return self.cua.start(
+            max_steps=int(a.get("max_steps") or 20),
+            max_seconds=float(a.get("max_seconds") or 600),
+        )
+
+    def _cua_stop(self, a: dict[str, Any] | None = None) -> dict[str, Any]:
+        assert self.cua is not None
+        return self.cua.stop(str((a or {}).get("reason") or "operator_stop"))
+
+    def _cua_status(self, _a: dict[str, Any] | None = None) -> dict[str, Any]:
+        assert self.cua is not None
+        return self.cua.status()
+
+    def _cua_observe(self, a: dict[str, Any] | None = None) -> dict[str, Any]:
+        assert self.cua is not None
+        return self.cua.observe(a)
+
+    def _cua_step(self, a: dict[str, Any] | None = None) -> dict[str, Any]:
+        assert self.cua is not None
+        return self.cua.step(a or {})
 
     def call(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._dispatcher.call_tool({"name": name, "arguments": arguments or {}})
@@ -158,9 +194,12 @@ class AssuredPlaneHost:
                 "shell_subset_gated": True,
                 "ambient_shell_exec": False,
                 "auto_post": False,
+                "session_cua": True,
                 "full_cua_unlimited": False,
-                "full_soc": False,
+                "agent_plane_soc": True,
+                "enterprise_soc": False,
             },
+            "cua": self.cua.status() if self.cua else {"active": False},
             "shell": {
                 "roots": [str(r) for r in self.shell.roots],
                 "named_commands": sorted(

@@ -82,6 +82,35 @@ class DesktopHandlers:
         args = args or {}
         return self._action("desktop.ax", max=int(args.get("max") or 40))
 
+    def ax_click(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        return self._action(
+            "desktop.ax_click",
+            role=str(args.get("role") or ""),
+            title=str(args.get("title") or ""),
+            description=str(args.get("description") or ""),
+            index=int(args.get("index") or 1),
+        )
+
+    def region_screenshot(self, args: dict[str, Any]) -> dict[str, Any]:
+        body = {
+            "action": "desktop.region_screenshot",
+            "x": int(args["x"]),
+            "y": int(args["y"]),
+            "w": int(args["w"]),
+            "h": int(args["h"]),
+        }
+        if args.get("path"):
+            body["path"] = args["path"]
+        return http_json(self.base, "/v1/action", body)
+
+    def cua_observe(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        body: dict[str, Any] = {"action": "desktop.cua_observe"}
+        if args.get("out_dir"):
+            body["out_dir"] = args["out_dir"]
+        return http_json(self.base, "/v1/action", body)
+
     def d4_session(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
         open_session = bool(args.get("open"))
