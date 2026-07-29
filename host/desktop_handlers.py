@@ -78,6 +78,20 @@ class DesktopHandlers:
     def windows(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._action("desktop.windows")
 
+    def ax(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        return self._action("desktop.ax", max=int(args.get("max") or 40))
+
+    def d4_session(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        open_session = bool(args.get("open"))
+        if args.get("close"):
+            open_session = False
+        body: dict[str, Any] = {"open": open_session}
+        if args.get("ttl") is not None:
+            body["ttl"] = int(args["ttl"])
+        return http_json(self.base, "/v1/d4-session", body)
+
     def screenshot(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
         body: dict[str, Any] = {"action": "desktop.screenshot"}

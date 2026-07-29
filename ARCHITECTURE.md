@@ -13,6 +13,7 @@ AssuredPlaneHost          (this repo)
     │
     ├── browser.*  → browser-leash :8756
     ├── desktop.*  → desktop-leash :8757
+    ├── shell.*    → gated FS + named commands only
     └── plane.*    → status + router (no ambient authority)
 ```
 

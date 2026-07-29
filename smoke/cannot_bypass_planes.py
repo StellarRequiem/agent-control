@@ -77,6 +77,39 @@ def run_smoke(*, live: bool = True) -> int:
     ok = out.get("executed") is True and isinstance(result, dict) and result.get("plane") == "shell"
     results.append(("route_shell", ok, str((result or {}).get("plane"))))
 
+    # 5c shell: free-form not in pack
+    out = host.call("shell_exec", {"cmd": "id"})
+    ok = out.get("executed") is False
+    results.append(("no_shell_exec_tool", ok, str((out.get("verdict") or {}).get("code"))))
+
+    # 5d shell: unknown named command
+    out = host.call("shell.run", {"name": "rm_rf_slash"})
+    result = out.get("result") or {}
+    if out.get("executed") and isinstance(result, dict):
+        ok = result.get("code") == "COMMAND_NOT_ALLOWLISTED"
+    else:
+        ok = out.get("executed") is False
+    results.append(("shell_run_unknown_name", ok, str((result or out.get("verdict") or {}).get("code"))))
+
+    # 5e shell: path outside roots
+    out = host.call("shell.read_file", {"path": "/etc/passwd"})
+    result = out.get("result") or {}
+    if out.get("executed") and isinstance(result, dict):
+        ok = result.get("ok") is False and result.get("code") in (
+            "PATH_OUTSIDE_ROOTS",
+            "SECRET_FILENAME",
+            "NOT_FILE",
+        )
+    else:
+        ok = out.get("executed") is False
+    results.append(("shell_read_outside_root", ok, str((result or {}).get("code"))))
+
+    # 5f shell: list under agent-control
+    out = host.call("shell.list_dir", {"path": str(ROOT)})
+    result = out.get("result") or {}
+    ok = out.get("executed") is True and isinstance(result, dict) and result.get("ok") is True
+    results.append(("shell_list_agent_control", ok, str((result or {}).get("code"))))
+
     if live:
         out = host.call("plane.status")
         result = out.get("result") or {}

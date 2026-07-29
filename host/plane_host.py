@@ -32,6 +32,7 @@ from host.browser_handlers import BrowserHandlers  # noqa: E402
 from host.desktop_handlers import DesktopHandlers  # noqa: E402
 from host.http_util import http_json  # noqa: E402
 from host.router import route_task  # noqa: E402
+from host.shell_handlers import ShellHandlers  # noqa: E402
 
 PACK_PATH = ROOT / "packs" / "local_planes.json"
 RECEIPTS = ROOT / "receipts" / "plane-host.jsonl"
@@ -65,11 +66,20 @@ class AssuredPlaneHost:
             load_local_pack(),
             receipts_path=str(receipts_path),
             freeze_path=str(freeze_path),
-            freeze_allow=frozenset({"plane.status", "plane.route", "browser.status", "desktop.status"}),
+            freeze_allow=frozenset(
+                {
+                    "plane.status",
+                    "plane.route",
+                    "browser.status",
+                    "desktop.status",
+                    "shell.roots",
+                }
+            ),
         )
 
         self.browser = BrowserHandlers(browser_base)
         self.desktop = DesktopHandlers(desktop_base)
+        self.shell = ShellHandlers()
         self.browser_base = browser_base
         self.desktop_base = desktop_base
 
@@ -88,6 +98,8 @@ class AssuredPlaneHost:
             "desktop.status": self.desktop.status,
             "desktop.apps": self.desktop.apps,
             "desktop.windows": self.desktop.windows,
+            "desktop.ax": self.desktop.ax,
+            "desktop.d4_session": self.desktop.d4_session,
             "desktop.screenshot": self.desktop.screenshot,
             "desktop.focus": self.desktop.focus,
             "desktop.click": self.desktop.click,
@@ -96,6 +108,11 @@ class AssuredPlaneHost:
             "desktop.scroll": self.desktop.scroll,
             "desktop.quit": self.desktop.quit,
             "desktop.confirm": self.desktop.confirm,
+            "shell.roots": self.shell.roots_list,
+            "shell.list_dir": self.shell.list_dir,
+            "shell.read_file": self.shell.read_file,
+            "shell.stat": self.shell.stat,
+            "shell.run": self.shell.run,
         }
 
         self._dispatcher = AssuredToolDispatcher(
@@ -138,9 +155,17 @@ class AssuredPlaneHost:
             "claim_ceiling": {
                 "every_grok_tool_gated": False,
                 "plane_tools_gated": True,
+                "shell_subset_gated": True,
+                "ambient_shell_exec": False,
                 "auto_post": False,
                 "full_cua_unlimited": False,
                 "full_soc": False,
+            },
+            "shell": {
+                "roots": [str(r) for r in self.shell.roots],
+                "named_commands": sorted(
+                    __import__("host.shell_handlers", fromlist=["ALLOW_COMMANDS"]).ALLOW_COMMANDS.keys()
+                ),
             },
         }
 
