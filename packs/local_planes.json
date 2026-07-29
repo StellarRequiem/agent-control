@@ -1,0 +1,158 @@
+{
+  "meta": {
+    "id": "local_planes",
+    "description": "Grok local control planes: browser-leash + desktop-leash + plane health. Deny-by-default; high-blast tools require operator_confirm handled in host.",
+    "version": 1
+  },
+  "tools": {
+    "plane.status": {
+      "description": "Aggregate status of browser-leash + desktop-leash + host",
+      "max_blast": 1,
+      "allowed_args": [],
+      "max_arg_bytes": 256
+    },
+    "plane.route": {
+      "description": "Classify a task string into shell | browser | desktop | mcp-assure | claim-gate",
+      "max_blast": 1,
+      "required_args": ["task"],
+      "allowed_args": ["task"],
+      "max_arg_bytes": 4096
+    },
+
+    "browser.status": {
+      "description": "browser-leash bridge status",
+      "max_blast": 1,
+      "allowed_args": [],
+      "max_arg_bytes": 256
+    },
+    "browser.navigate": {
+      "description": "Navigate Chrome tab (host allowlist enforced by leash)",
+      "max_blast": 2,
+      "required_args": ["url"],
+      "allowed_args": ["url"],
+      "max_arg_bytes": 2048
+    },
+    "browser.snapshot": {
+      "description": "Active page text snapshot",
+      "max_blast": 1,
+      "allowed_args": [],
+      "max_arg_bytes": 256
+    },
+    "browser.screenshot": {
+      "description": "Capture visible tab",
+      "max_blast": 1,
+      "allowed_args": ["out"],
+      "max_arg_bytes": 1024
+    },
+    "browser.click": {
+      "description": "Click selector in Chrome",
+      "max_blast": 2,
+      "required_args": ["selector"],
+      "allowed_args": ["selector"],
+      "max_arg_bytes": 1024
+    },
+    "browser.type": {
+      "description": "Type into selector in Chrome",
+      "max_blast": 2,
+      "required_args": ["text"],
+      "allowed_args": ["selector", "text"],
+      "max_arg_bytes": 16384
+    },
+    "browser.scroll": {
+      "description": "Scroll active page",
+      "max_blast": 1,
+      "allowed_args": ["dy", "dx"],
+      "max_arg_bytes": 256
+    },
+    "browser.x_draft": {
+      "description": "Fill X compose draft (does not publish)",
+      "max_blast": 2,
+      "required_args": ["text"],
+      "allowed_args": ["text"],
+      "max_arg_bytes": 16384,
+      "forbidden_args": ["token", "password", "api_key"]
+    },
+    "browser.x_post": {
+      "description": "Publish on X — dual human gate: operator_confirm=true AND leash require_post_confirm",
+      "max_blast": 1,
+      "required_args": ["operator_confirm"],
+      "allowed_args": ["operator_confirm", "click_only", "text"],
+      "max_arg_bytes": 16384,
+      "forbidden_args": ["token", "password", "api_key"]
+    },
+
+    "desktop.status": {
+      "description": "desktop-leash bridge status",
+      "max_blast": 1,
+      "allowed_args": [],
+      "max_arg_bytes": 256
+    },
+    "desktop.apps": {
+      "description": "List running apps (D1)",
+      "max_blast": 1,
+      "allowed_args": [],
+      "max_arg_bytes": 256
+    },
+    "desktop.windows": {
+      "description": "List windows (D1)",
+      "max_blast": 1,
+      "allowed_args": [],
+      "max_arg_bytes": 256
+    },
+    "desktop.screenshot": {
+      "description": "Desktop screenshot (D1)",
+      "max_blast": 1,
+      "allowed_args": ["out"],
+      "max_arg_bytes": 1024
+    },
+    "desktop.focus": {
+      "description": "Focus allowlisted app (D2)",
+      "max_blast": 2,
+      "required_args": ["app"],
+      "allowed_args": ["app"],
+      "max_arg_bytes": 256
+    },
+    "desktop.click": {
+      "description": "Click coordinates (D3)",
+      "max_blast": 2,
+      "required_args": ["x", "y"],
+      "allowed_args": ["x", "y"],
+      "max_arg_bytes": 256
+    },
+    "desktop.type": {
+      "description": "Type into frontmost allowlisted app (D3)",
+      "max_blast": 2,
+      "required_args": ["text"],
+      "allowed_args": ["text"],
+      "max_arg_bytes": 8192,
+      "forbidden_args": ["token", "password", "api_key"]
+    },
+    "desktop.press": {
+      "description": "Press key — Return/Enter is D4 on leash",
+      "max_blast": 1,
+      "required_args": ["key"],
+      "allowed_args": ["key", "operator_confirm"],
+      "max_arg_bytes": 256
+    },
+    "desktop.scroll": {
+      "description": "Scroll (D3)",
+      "max_blast": 1,
+      "allowed_args": ["dy"],
+      "max_arg_bytes": 256
+    },
+    "desktop.quit": {
+      "description": "Quit allowlisted app — dual human gate",
+      "max_blast": 1,
+      "required_args": ["app", "operator_confirm"],
+      "allowed_args": ["app", "operator_confirm"],
+      "max_arg_bytes": 256
+    },
+    "desktop.confirm": {
+      "description": "Resolve pending D4 confirm on desktop-leash",
+      "max_blast": 1,
+      "required_args": ["id", "approve"],
+      "allowed_args": ["id", "approve"],
+      "max_arg_bytes": 512
+    }
+  }
+}

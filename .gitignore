@@ -1,0 +1,7 @@
+receipts/*
+!receipts/.gitkeep
+__pycache__/
+*.pyc
+.venv/
+FREEZE
+*.jsonl

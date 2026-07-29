@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "id": "desktop_app_profiles",
+    "description": "Per-app profiles for desktop-leash via agent-control host. Phase-5 start — host enforces; leash still has its own allow/deny.",
+    "version": 1
+  },
+  "default": {
+    "max_input_per_session": 80,
+    "allow_type": true,
+    "allow_click": true,
+    "allow_press": true,
+    "allow_quit": false,
+    "notes": "Conservative default for unknown allowlisted apps"
+  },
+  "profiles": {
+    "TextEdit": {
+      "max_input_per_session": 120,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": true,
+      "notes": "Demo editor"
+    },
+    "Notes": {
+      "max_input_per_session": 80,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "notes": "Personal content — treat as private"
+    },
+    "Terminal": {
+      "max_input_per_session": 20,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": false,
+      "allow_quit": false,
+      "notes": "Prefer shell tools over GUI type/press (Return may execute)"
+    },
+    "iTerm2": {
+      "max_input_per_session": 20,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": false,
+      "allow_quit": false,
+      "notes": "Prefer shell tools"
+    },
+    "Ghostty": {
+      "max_input_per_session": 20,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": false,
+      "allow_quit": false,
+      "notes": "Prefer shell tools"
+    },
+    "Code": {
+      "max_input_per_session": 60,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "notes": "Editor — still prefer shell for git/tests"
+    },
+    "Cursor": {
+      "max_input_per_session": 60,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false
+    },
+    "Google Chrome": {
+      "max_input_per_session": 10,
+      "allow_type": false,
+      "allow_click": false,
+      "allow_press": false,
+      "allow_quit": false,
+      "notes": "Prefer browser-leash for Chrome"
+    },
+    "Finder": {
+      "max_input_per_session": 15,
+      "allow_type": false,
+      "allow_click": true,
+      "allow_press": false,
+      "allow_quit": false,
+      "notes": "Limited file UI"
+    }
+  },
+  "denylist_hard": [
+    "1Password",
+    "Bitwarden",
+    "Keychain Access",
+    "Passwords",
+    "Mail",
+    "Messages"
+  ]
+}
