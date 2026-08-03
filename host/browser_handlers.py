@@ -58,7 +58,35 @@ class BrowserHandlers:
         return http_json(self.base, "/v1/status")
 
     def navigate(self, args: dict[str, Any]) -> dict[str, Any]:
-        return self._action("tab.navigate", url=args["url"])
+        body: dict[str, Any] = {"url": args["url"]}
+        if args.get("tabId") is not None:
+            body["tabId"] = int(args["tabId"])
+        return self._action("tab.navigate", **body)
+
+    def tabs(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self._action("tab.list")
+
+    def tab_create(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        body: dict[str, Any] = {}
+        if args.get("url"):
+            body["url"] = str(args["url"]).strip()
+        if args.get("active") is not None:
+            body["active"] = bool(args["active"])
+        return self._action("tab.create", **body)
+
+    def tab_close(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        body: dict[str, Any] = {}
+        if args.get("tabId") is not None:
+            body["tabId"] = int(args["tabId"])
+        elif args.get("id") is not None:
+            body["tabId"] = int(args["id"])
+        return self._action("tab.close", **body)
+
+    def tab_activate(self, args: dict[str, Any]) -> dict[str, Any]:
+        tid = args.get("tabId") if args.get("tabId") is not None else args.get("id")
+        return self._action("tab.activate", tabId=int(tid))
 
     def snapshot(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._action("page.snapshot")
@@ -88,6 +116,40 @@ class BrowserHandlers:
             dy=int(args.get("dy", 600)),
             dx=int(args.get("dx", 0)),
         )
+
+    def wait(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        body: dict[str, Any] = {"action": "page.wait"}
+        for k in ("mode", "selector", "ms", "timeout_ms", "timeout", "tabId"):
+            if args.get(k) is not None:
+                body[k] = args[k]
+        return http_json(self.base, "/v1/action", body, timeout=float(args.get("timeout_ms") or args.get("timeout") or 20) + 5)
+
+    def find(self, args: dict[str, Any]) -> dict[str, Any]:
+        body: dict[str, Any] = {"selector": args["selector"]}
+        if args.get("limit") is not None:
+            body["limit"] = int(args["limit"])
+        return self._action("page.find", **body)
+
+    def links(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        body: dict[str, Any] = {}
+        if args.get("limit") is not None:
+            body["limit"] = int(args["limit"])
+        return self._action("page.links", **body)
+
+    def back(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self._action("page.back")
+
+    def forward(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self._action("page.forward")
+
+    def reload(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        args = args or {}
+        body: dict[str, Any] = {}
+        if args.get("bypass_cache"):
+            body["bypass_cache"] = True
+        return self._action("page.reload", **body)
 
     def x_article_read(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         """Fetch full X article / status / thread body (T1 observe — arm required)."""

@@ -33,6 +33,10 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("status", help="plane.status through the gate")
     sub.add_parser("stack", help="lifecycle stack status (bridges + ambient readiness)")
+    sub.add_parser(
+        "available",
+        help="always-available posture: bridges up? extension hello? (does not require ARM)",
+    )
     up = sub.add_parser("up", help="start browser+desktop bridges; sticky-arm desktop (V1)")
     up.add_argument(
         "--no-arm-desktop",
@@ -56,13 +60,17 @@ def main(argv: list[str] | None = None) -> int:
 
     args = p.parse_args(argv)
 
-    if args.cmd in ("up", "down", "stack"):
+    if args.cmd in ("up", "down", "stack", "available"):
         from host import lifecycle
 
         if args.cmd == "stack":
             out = lifecycle.stack_status()
             print(json.dumps(out, indent=2, default=str)[:20000])
             return 0 if out.get("ready") else 1
+        if args.cmd == "available":
+            out = lifecycle.stack_available()
+            print(json.dumps(out, indent=2, default=str)[:20000])
+            return 0 if out.get("available") else 1
         if args.cmd == "up":
             out = lifecycle.stack_up(arm_desktop_plane=not args.no_arm_desktop)
             print(json.dumps(out, indent=2, default=str)[:20000])

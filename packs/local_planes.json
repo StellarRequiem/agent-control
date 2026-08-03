@@ -2,7 +2,7 @@
   "meta": {
     "id": "local_planes",
     "description": "Planes + gated shell + CUA session tools. Deny-by-default. Not ambient OS control.",
-    "version": 7
+    "version": 8
   },
   "tools": {
     "plane.status": {
@@ -28,6 +28,44 @@
       "allowed_args": [],
       "max_arg_bytes": 256
     },
+    "browser.tabs": {
+      "description": "List Chrome tabs",
+      "max_blast": 1,
+      "allowed_args": [],
+      "max_arg_bytes": 256
+    },
+    "browser.tab_create": {
+      "description": "Create Chrome tab (optional allowlisted url)",
+      "max_blast": 2,
+      "required_args": [],
+      "allowed_args": [
+        "url",
+        "active"
+      ],
+      "max_arg_bytes": 2048
+    },
+    "browser.tab_close": {
+      "description": "Close Chrome tab (tabId optional = active)",
+      "max_blast": 2,
+      "required_args": [],
+      "allowed_args": [
+        "tabId",
+        "id"
+      ],
+      "max_arg_bytes": 256
+    },
+    "browser.tab_activate": {
+      "description": "Focus/activate Chrome tab by id",
+      "max_blast": 2,
+      "required_args": [
+        "tabId"
+      ],
+      "allowed_args": [
+        "tabId",
+        "id"
+      ],
+      "max_arg_bytes": 256
+    },
     "browser.navigate": {
       "description": "Navigate Chrome tab (host allowlist enforced by leash)",
       "max_blast": 2,
@@ -35,7 +73,8 @@
         "url"
       ],
       "allowed_args": [
-        "url"
+        "url",
+        "tabId"
       ],
       "max_arg_bytes": 2048
     },
@@ -82,6 +121,62 @@
       "allowed_args": [
         "dy",
         "dx"
+      ],
+      "max_arg_bytes": 256
+    },
+    "browser.wait": {
+      "description": "Wait for load, selector, or ms delay",
+      "max_blast": 1,
+      "required_args": [],
+      "allowed_args": [
+        "mode",
+        "selector",
+        "ms",
+        "timeout_ms",
+        "timeout",
+        "tabId"
+      ],
+      "max_arg_bytes": 1024
+    },
+    "browser.find": {
+      "description": "Query selector matches with text/box metadata",
+      "max_blast": 1,
+      "required_args": [
+        "selector"
+      ],
+      "allowed_args": [
+        "selector",
+        "limit"
+      ],
+      "max_arg_bytes": 1024
+    },
+    "browser.links": {
+      "description": "List unique hrefs on active page",
+      "max_blast": 1,
+      "required_args": [],
+      "allowed_args": [
+        "limit"
+      ],
+      "max_arg_bytes": 256
+    },
+    "browser.back": {
+      "description": "History back on active tab",
+      "max_blast": 2,
+      "allowed_args": [],
+      "max_arg_bytes": 256
+    },
+    "browser.forward": {
+      "description": "History forward on active tab",
+      "max_blast": 2,
+      "allowed_args": [],
+      "max_arg_bytes": 256
+    },
+    "browser.reload": {
+      "description": "Reload active tab",
+      "max_blast": 2,
+      "required_args": [],
+      "allowed_args": [
+        "bypass_cache"
       ],
       "max_arg_bytes": 256
     },

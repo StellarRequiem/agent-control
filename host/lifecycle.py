@@ -272,6 +272,87 @@ def stack_status() -> dict[str, Any]:
     }
 
 
+def stack_available() -> dict[str, Any]:
+    """Always-available posture: bridges up + extension hello. Does not require ARM.
+
+    Distinguishes infrastructure readiness from session authority (ARM).
+    """
+    browser = probe_browser()
+    desktop = probe_desktop()
+    bridges_up = bool(browser.get("up") and desktop.get("up"))
+    ext = browser.get("extension") if isinstance(browser.get("extension"), dict) else {}
+    # probe_browser may put version at top level too
+    ext_ver = None
+    if isinstance(ext, dict):
+        ext_ver = ext.get("version")
+    if not ext_ver:
+        ext_ver = browser.get("version")
+    # nested in raw status via probe
+    hello_ok = bool(browser.get("up") and (ext_ver or browser.get("armed") is not None))
+    # Prefer explicit last_hello when present
+    last_hello = None
+    if isinstance(ext, dict):
+        last_hello = ext.get("last_hello")
+    extension_connected = bool(ext_ver) and (last_hello is None or float(last_hello or 0) > 0)
+
+    # Re-probe browser with full status for expect version
+    try:
+        import urllib.request
+
+        with urllib.request.urlopen("http://127.0.0.1:8756/v1/status", timeout=2) as resp:
+            import json as _json
+
+            full = _json.loads(resp.read().decode())
+        ext_full = full.get("extension") or {}
+        extension_connected = bool(ext_full.get("version")) and float(
+            ext_full.get("last_hello") or 0
+        ) > 0
+        ext_ver = ext_full.get("version")
+        expect = full.get("expect_extension_version")
+        browser_armed = bool(full.get("armed"))
+        require_post = full.get("require_post_confirm")
+    except Exception:
+        expect = None
+        browser_armed = bool(browser.get("armed"))
+        require_post = None
+
+    available = bridges_up  # infra only
+    work_session_ready = (
+        available
+        and extension_connected
+        and browser_armed
+        and bool(desktop.get("armed"))
+    )
+
+    return {
+        "ok": True,
+        "code": "STACK_AVAILABLE",
+        "available": available,
+        "work_session_ready": work_session_ready,
+        "bridges_up": bridges_up,
+        "extension_connected": extension_connected,
+        "extension_version": ext_ver,
+        "expect_extension_version": expect,
+        "browser_armed": browser_armed,
+        "desktop_armed": bool(desktop.get("armed")),
+        "require_post_confirm": require_post,
+        "browser_leash": browser,
+        "desktop_leash": desktop,
+        "always_on_policy": {
+            "bridges": "may run always (launchd KeepAlive)",
+            "arm": "NEVER auto — operator/extension intentional",
+            "auto_post": False,
+            "abhorrent_lockdown": "phase C — not enabled",
+        },
+        "how_to": {
+            "install_launchd": "bash ~/agent-control/scripts/always_available.sh install",
+            "work_session": "Soft Reload if needed → Chrome popup ARM → desktop arm (cli.py up) → work → DISARM / down",
+            "soc_watch_optional": "INSTALL_SOC_WATCH=1 bash ~/agent-control/scripts/always_available.sh install",
+        },
+        "claim": "always-available bridges — not always-armed ambient authority",
+    }
+
+
 def stack_up(
     *,
     arm_desktop_plane: bool = True,

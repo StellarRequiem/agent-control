@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Optional agent-soc watch. Freeze-only by default (no auto-disarm). -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.stellarrequiem.agent-soc-watch</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/llm01/agent-soc/cli.py</string>
+    <string>watch</string>
+    <string>--interval</string>
+    <string>30</string>
+    <string>--auto-respond-high</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>WorkingDirectory</key>
+  <string>/Users/llm01/agent-soc</string>
+  <key>StandardOutPath</key>
+  <string>/Users/llm01/agent-soc/incidents/watch.launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/llm01/agent-soc/incidents/watch.launchd.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    <key>AGENT_SOC_AUTO_DISARM</key>
+    <string>0</string>
+  </dict>
+</dict>
+</plist>

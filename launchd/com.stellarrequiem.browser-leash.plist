@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Always-available browser-leash bridge. Does NOT arm the extension. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.stellarrequiem.browser-leash</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/llm01/browser-leash/bridge/server.py</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>WorkingDirectory</key>
+  <string>/Users/llm01/browser-leash</string>
+  <key>StandardOutPath</key>
+  <string>/Users/llm01/browser-leash/receipts/bridge.launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/llm01/browser-leash/receipts/bridge.launchd.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+  </dict>
+</dict>
+</plist>
