@@ -63,12 +63,23 @@ def route_task(task: str) -> Route:
             "draft on x",
             "post on x",
             "linkedin",
+            "article",
+            "read on x",
+            "x article",
+            "full article",
+            "thread",
         )
     ):
         return Route(
             "browser",
             "Chrome/web session → browser-leash",
-            ("browser.navigate", "browser.snapshot", "browser.x_draft", "browser.x_post"),
+            (
+                "browser.navigate",
+                "browser.snapshot",
+                "browser.x_article_read",
+                "browser.x_draft",
+                "browser.x_post",
+            ),
             ("desktop.click", "desktop.type"),
         )
 

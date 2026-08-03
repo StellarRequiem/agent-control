@@ -2,7 +2,7 @@
   "meta": {
     "id": "local_planes",
     "description": "Planes + gated shell + CUA session tools. Deny-by-default. Not ambient OS control.",
-    "version": 5
+    "version": 6
   },
   "tools": {
     "plane.status": {
@@ -84,6 +84,23 @@
         "dx"
       ],
       "max_arg_bytes": 256
+    },
+    "browser.x_article_read": {
+      "description": "Read full X article / status / thread body (scroll + extract; T1 observe)",
+      "max_blast": 1,
+      "required_args": [],
+      "allowed_args": [
+        "url",
+        "max_scrolls",
+        "max_chars",
+        "timeout"
+      ],
+      "max_arg_bytes": 4096,
+      "forbidden_args": [
+        "token",
+        "password",
+        "api_key"
+      ]
     },
     "browser.x_draft": {
       "description": "Fill X compose draft (does not publish)",

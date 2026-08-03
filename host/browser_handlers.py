@@ -54,6 +54,49 @@ class BrowserHandlers:
             dx=int(args.get("dx", 0)),
         )
 
+    def x_article_read(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Fetch full X article / status / thread body (T1 observe — arm required)."""
+        args = args or {}
+        body: dict[str, Any] = {"action": "x.article_read"}
+        url = (args.get("url") or "").strip()
+        if url:
+            body["url"] = url
+        if args.get("max_scrolls") is not None:
+            body["max_scrolls"] = int(args["max_scrolls"])
+        if args.get("max_chars") is not None:
+            body["max_chars"] = int(args["max_chars"])
+        if args.get("timeout") is not None:
+            body["timeout"] = float(args["timeout"])
+        res = http_json(self.base, "/v1/action", body)
+        # Normalize for agent: promote data fields
+        if res.get("ok") and isinstance(res.get("data"), dict):
+            data = res["data"]
+            return {
+                "ok": True,
+                "code": res.get("code") or "ARTICLE_READ",
+                "kind": data.get("kind"),
+                "url": data.get("url"),
+                "title": data.get("title"),
+                "author": data.get("author"),
+                "handle": data.get("handle"),
+                "headline": data.get("headline"),
+                "body": data.get("body"),
+                "char_count": data.get("char_count"),
+                "word_count": data.get("word_count"),
+                "truncated": data.get("truncated"),
+                "leash": {k: v for k, v in res.items() if k != "data"},
+                "meta": {
+                    "expand_clicks": data.get("expand_clicks"),
+                    "blocks_found": data.get("blocks_found"),
+                },
+            }
+        return {
+            "ok": False,
+            "code": res.get("code") or "ARTICLE_READ_FAIL",
+            "detail": res.get("detail"),
+            "leash": res,
+        }
+
     def x_draft(self, args: dict[str, Any]) -> dict[str, Any]:
         text = args.get("text") or ""
         self.pipeline.begin_draft(text)
