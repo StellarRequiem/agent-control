@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Always-available control plane (bridges up). NEVER auto-arms leashes.
 # Usage:
-#   ./always_available.sh install   # launchd Load (login, keepalive)
+#   ./always_available.sh install   # bridges + freeze-only SOC watch (default)
+#   INSTALL_SOC_WATCH=0 ./always_available.sh install   # bridges only
 #   ./always_available.sh uninstall
 #   ./always_available.sh status
 #   ./always_available.sh start     # one-shot up without launchd
@@ -17,7 +18,8 @@ labels=(
   com.stellarrequiem.desktop-leash
 )
 
-install_soc="${INSTALL_SOC_WATCH:-0}"
+# H1: freeze-only agent-soc watch is ON by default; set INSTALL_SOC_WATCH=0 to skip
+install_soc="${INSTALL_SOC_WATCH:-1}"
 
 cmd="${1:-status}"
 
@@ -54,10 +56,11 @@ _bootout() {
 case "$cmd" in
   install)
     for l in "${labels[@]}"; do _bootstrap "$l"; done
-    if [[ "$install_soc" == "1" ]]; then
+    if [[ "$install_soc" == "1" || "$install_soc" == "true" || "$install_soc" == "yes" ]]; then
       _bootstrap com.stellarrequiem.agent-soc-watch
+      echo "agent-soc-watch: freeze-only (AGENT_SOC_AUTO_DISARM=0); high/critical auto-respond"
     else
-      echo "skip agent-soc-watch (set INSTALL_SOC_WATCH=1 to include freeze-only watch)"
+      echo "skip agent-soc-watch (INSTALL_SOC_WATCH=$install_soc)"
     fi
     echo "claim: bridges always available — ARM is still operator/extension intentional"
     sleep 1

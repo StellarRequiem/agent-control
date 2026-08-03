@@ -272,6 +272,71 @@ def stack_status() -> dict[str, Any]:
     }
 
 
+def session_surface() -> dict[str, Any]:
+    """H5: single-surface session snapshot for agent/operator start-of-turn."""
+    import subprocess
+    import sys
+
+    avail = stack_available()
+    stack = stack_status()
+    lockdown: dict[str, Any] = {}
+    try:
+        p = subprocess.run(
+            [sys.executable, str(HOME / "agent-soc" / "cli.py"), "lockdown", "status"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        text = (p.stdout or "").strip()
+        # lockdown status may be single JSON object
+        lockdown = json.loads(text) if text.startswith("{") else {"raw": text[:2000]}
+    except Exception as e:
+        lockdown = {"ok": False, "error": str(e)}
+
+    freeze_active = bool(lockdown.get("freeze_active"))
+    work = bool(avail.get("work_session_ready")) and not freeze_active
+    return {
+        "ok": True,
+        "code": "SESSION_SURFACE",
+        "work_session_ready": work,
+        "available": avail.get("available"),
+        "freeze_active": freeze_active,
+        "available_detail": avail,
+        "stack": stack,
+        "lockdown": {
+            "freeze_active": freeze_active,
+            "severity": lockdown.get("severity"),
+            "should_engage": (lockdown.get("lockdown") or {}).get("should_engage_lockdown"),
+            "alerts": [
+                a.get("rule")
+                for a in (lockdown.get("alerts") or [])
+                if a.get("rule") != "QUIET"
+            ][:12],
+        },
+        "claim_ceiling": {
+            "plane_tools_gated": True,
+            "native_runtime_shell_gated": False,
+            "auto_post": False,
+            "always_armed": False,
+            "abhorrent_lockdown": True,
+            "enterprise_soc": False,
+        },
+        "sop": [
+            "1. available=true (launchd bridges)",
+            "2. Soft Reload extension if version mismatch",
+            "3. ARM browser + desktop for work_session_ready",
+            "4. Prefer host shell.* over native Grok shell",
+            "5. lockdown clear if freeze_active after drill",
+            "6. DISARM when done (leave bridges up under launchd)",
+        ],
+        "docs": {
+            "always_available": str(HOME / "agent-control" / "docs" / "ALWAYS_AVAILABLE.md"),
+            "abhorrent": str(HOME / "agent-control" / "docs" / "ABHORRENT_LOCKDOWN.md"),
+            "shell_gap": str(HOME / "agent-control" / "docs" / "SHELL_CANNOT_BYPASS.md"),
+        },
+    }
+
+
 def stack_available() -> dict[str, Any]:
     """Always-available posture: bridges up + extension hello. Does not require ARM.
 
@@ -347,7 +412,8 @@ def stack_available() -> dict[str, Any]:
         "how_to": {
             "install_launchd": "bash ~/agent-control/scripts/always_available.sh install",
             "work_session": "Soft Reload if needed → Chrome popup ARM → desktop arm (cli.py up) → work → DISARM / down",
-            "soc_watch_optional": "INSTALL_SOC_WATCH=1 bash ~/agent-control/scripts/always_available.sh install",
+            "soc_watch": "installed by default (freeze-only); INSTALL_SOC_WATCH=0 to skip",
+            "session": "python3 ~/agent-control/cli.py session",
         },
         "claim": "always-available bridges — not always-armed ambient authority",
     }

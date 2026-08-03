@@ -37,6 +37,10 @@ def main(argv: list[str] | None = None) -> int:
         "available",
         help="always-available posture: bridges up? extension hello? (does not require ARM)",
     )
+    sub.add_parser(
+        "session",
+        help="single-surface session: available + stack + lockdown + claim ceiling",
+    )
     up = sub.add_parser("up", help="start browser+desktop bridges; sticky-arm desktop (V1)")
     up.add_argument(
         "--no-arm-desktop",
@@ -73,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
 
     args = p.parse_args(argv)
 
-    if args.cmd in ("up", "down", "stack", "available"):
+    if args.cmd in ("up", "down", "stack", "available", "session"):
         from host import lifecycle
 
         if args.cmd == "stack":
@@ -84,6 +88,10 @@ def main(argv: list[str] | None = None) -> int:
             out = lifecycle.stack_available()
             print(json.dumps(out, indent=2, default=str)[:20000])
             return 0 if out.get("available") else 1
+        if args.cmd == "session":
+            out = lifecycle.session_surface()
+            print(json.dumps(out, indent=2, default=str)[:24000])
+            return 0 if out.get("ok") else 1
         if args.cmd == "up":
             out = lifecycle.stack_up(arm_desktop_plane=not args.no_arm_desktop)
             print(json.dumps(out, indent=2, default=str)[:20000])
