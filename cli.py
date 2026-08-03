@@ -60,6 +60,10 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--args-json", default="{}")
     c.add_argument("--auth-only", action="store_true", help="authorize without executing handler")
     sub.add_parser("smoke", help="offline + optional live cannot-bypass smoke")
+    sub.add_parser(
+        "proof",
+        help="unified proof board (gates + purple + freeze cycle + samples)",
+    )
     sub.add_parser("tools", help="list pack tools")
     ld = sub.add_parser(
         "lockdown",
@@ -144,6 +148,11 @@ def main(argv: list[str] | None = None) -> int:
         from smoke.cannot_bypass_planes import run_smoke
 
         return run_smoke(live=True)
+
+    if args.cmd == "proof":
+        from smoke.proof_suite import main as proof_main
+
+        return proof_main()
 
     if args.cmd == "lockdown":
         # Proxy to agent-soc — single operator surface

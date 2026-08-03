@@ -339,3 +339,15 @@ Built under an operator protocol that prioritizes facts over narrative, claim ce
 | Ver | Date | Note |
 |-----|------|------|
 | 1.0 | 2026-08-03 | Initial working paper from shipped stack (Phases A–C + harden) |
+| 1.1 | 2026-08-03 | Stronger-proof backlog + unified proof board (`cli.py proof`); path/secret detector split |
+
+## Appendix D — Stronger proof (living)
+
+See `ops/papers/STRONG_PROOF_BACKLOG.md` (also mirrored when shipped with paper).
+
+Re-run board:
+
+```bash
+python3 ~/agent-control/cli.py proof
+# writes agent-control/receipts/proof-suite-latest.json
+```
