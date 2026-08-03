@@ -1,32 +1,34 @@
-# Grok default path — CUA + SOC first
+# Grok default path — V1 ambient under leash
+
+**Pursuit:** `~/ops/CONTROL_STACK_V1_PURSUIT.md` · **SOP:** `docs/V1.md`
 
 **Default operating path for plane / GUI / high-blast work on this host.**
 
 ```
-1. agent-soc status          (posture)
-2. agent-control plane.status
-3. route task                (plane.route)
-4. if multi-step GUI:        cua.start → observe → step* → stop
-5. browser.* / desktop.* via agent-control (not raw leash unless debug)
-6. high-blast: never invent operator_confirm
-7. end of day: DISARM + optional agent-soc watch stop
+1. agent-control up / grok_session.py   (bridges + desktop arm)
+2. agent-soc status                     (posture)
+3. agent-control plane.status / stack
+4. route task                           (plane.route)
+5. if multi-step GUI:  cua.start → observe (incl. layout) → step* → stop
+6. browser.* / desktop.* via agent-control (not raw leash unless debug)
+7. high-blast: never invent operator_confirm
+8. end of day: cli.py down (+ optional agent-soc watch stop)
 ```
 
 ## Why
 
+- **One-command lifecycle** — cold start without manual nohup  
 - **Receipts + AdaptiveGate** on plane tools  
-- **Session CUA budget** instead of open-ended RPA  
+- **Session CUA budget** (V1: 40 / 30m) instead of open-ended RPA  
 - **agent-soc** detects high-blast churn / deny spikes  
-- **Layout first** — never full-screen click guessing (Terminal/Chrome split)  
+- **Layout first** — every CUA observe includes window geometry  
 
 ## Desktop GUI (tight control)
 
 ```bash
-python3 ~/desktop-leash/bridge/client.py layout
-# frames_by_app: Chrome x=959 w=961 · Terminal x=0 w=960  (example split)
-
-python3 ~/desktop-leash/bridge/client.py shot-window --app "Google Chrome" --out /tmp/chrome.png
-python3 ~/desktop-leash/bridge/client.py click-window --app "Google Chrome" --rel-x 0.92 --rel-y 0.88
+python3 ~/agent-control/cli.py call desktop.layout
+python3 ~/agent-control/cli.py call desktop.screenshot_window --args-json '{"app":"Google Chrome"}'
+python3 ~/agent-control/cli.py call desktop.click_window --args-json '{"app":"Google Chrome","rel_x":0.92,"rel_y":0.88}'
 ```
 
 See `~/desktop-leash/docs/LAYOUT_CONTROL.md`.
@@ -34,19 +36,24 @@ See `~/desktop-leash/docs/LAYOUT_CONTROL.md`.
 ## Commands (copy-paste)
 
 ```bash
-# Preflight
-python3 ~/agent-soc/cli.py status
-python3 ~/agent-control/cli.py status
+# Preflight (V1)
+python3 ~/agent-control/grok_session.py --start-cua
+# or:
+python3 ~/agent-control/cli.py up
+python3 ~/agent-control/cli.py stack
 python3 ~/agent-control/cli.py smoke
 
 # Route
 python3 ~/agent-control/cli.py route --task "your task here"
 
-# CUA session (GUI multi-step)
-python3 ~/agent-control/cli.py call cua.start --args-json '{"max_steps":20,"max_seconds":900}'
+# CUA session (GUI multi-step; defaults 40 steps / 1800s)
+python3 ~/agent-control/cli.py call cua.start
 python3 ~/agent-control/cli.py call cua.observe
 python3 ~/agent-control/cli.py call cua.step --args-json '{"tool":"desktop.focus","arguments":{"app":"TextEdit"}}'
 python3 ~/agent-control/cli.py call cua.stop
+
+# End of day
+python3 ~/agent-control/cli.py down
 
 # Continuous SOC (background)
 # python3 ~/agent-soc/cli.py watch --interval 30
@@ -59,4 +66,4 @@ Use only for debug when agent-control is wrong; prefer host for agent work.
 
 ## Claim
 
-Session CUA + agent-plane SOC on default path — **not** ambient unlimited OS control / enterprise SOC.
+Session CUA + stack lifecycle + agent-plane SOC — **not** ambient unlimited OS control / enterprise SOC / auto-post.

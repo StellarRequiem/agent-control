@@ -10,12 +10,16 @@ AssuredPlaneHost          (this repo)
     │  AdaptiveGate + AssuredToolDispatcher (mcp-assure)
     │  policy: packs/local_planes.json
     │  receipts: receipts/plane-host.jsonl
+    │  lifecycle: cli.py up|down|stack  (V1 ambient ceremony)
     │
     ├── browser.*  → browser-leash :8756
     ├── desktop.*  → desktop-leash :8757
     ├── shell.*    → gated FS + named commands + validated-argv shell.exec (interpreter-free)
+    ├── cua.*      → budgeted session (V1: 40 steps / 30m; observe includes layout)
     └── plane.*    → status + router (no ambient authority)
 ```
+
+**V1 pursuit:** `~/ops/CONTROL_STACK_V1_PURSUIT.md` · **SOP:** `docs/V1.md`
 
 ## Surfaces we are building toward
 

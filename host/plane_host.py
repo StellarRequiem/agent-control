@@ -144,9 +144,11 @@ class AssuredPlaneHost:
     def _cua_start(self, a: dict[str, Any] | None = None) -> dict[str, Any]:
         a = a or {}
         assert self.cua is not None
+        from host.cua_loop import DEFAULT_MAX_SECONDS, DEFAULT_MAX_STEPS
+
         return self.cua.start(
-            max_steps=int(a.get("max_steps") or 20),
-            max_seconds=float(a.get("max_seconds") or 600),
+            max_steps=int(a.get("max_steps") or DEFAULT_MAX_STEPS),
+            max_seconds=float(a.get("max_seconds") or DEFAULT_MAX_SECONDS),
         )
 
     def _cua_stop(self, a: dict[str, Any] | None = None) -> dict[str, Any]:

@@ -2,12 +2,15 @@
 """agent-control CLI — assured plane host for browser-leash + desktop-leash.
 
 Examples:
+  python3 ~/agent-control/cli.py up
+  python3 ~/agent-control/cli.py stack
   python3 ~/agent-control/cli.py status
   python3 ~/agent-control/cli.py route --task "draft on X"
   python3 ~/agent-control/cli.py call plane.status
   python3 ~/agent-control/cli.py call browser.navigate --args-json '{"url":"https://xclusivexo.com"}'
   python3 ~/agent-control/cli.py call browser.x_post --args-json '{"operator_confirm":false}'
   python3 ~/agent-control/cli.py smoke
+  python3 ~/agent-control/cli.py down
 """
 
 from __future__ import annotations
@@ -29,6 +32,19 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("status", help="plane.status through the gate")
+    sub.add_parser("stack", help="lifecycle stack status (bridges + ambient readiness)")
+    up = sub.add_parser("up", help="start browser+desktop bridges; sticky-arm desktop (V1)")
+    up.add_argument(
+        "--no-arm-desktop",
+        action="store_true",
+        help="start bridges only; do not sticky-arm desktop",
+    )
+    down = sub.add_parser("down", help="disarm desktop + stop bridges owned by this host")
+    down.add_argument(
+        "--keep-armed",
+        action="store_true",
+        help="stop pids without disarming desktop",
+    )
     r = sub.add_parser("route", help="classify a task")
     r.add_argument("--task", required=True)
     c = sub.add_parser("call", help="call a plane tool through AdaptiveGate")
@@ -39,6 +55,22 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("tools", help="list pack tools")
 
     args = p.parse_args(argv)
+
+    if args.cmd in ("up", "down", "stack"):
+        from host import lifecycle
+
+        if args.cmd == "stack":
+            out = lifecycle.stack_status()
+            print(json.dumps(out, indent=2, default=str)[:20000])
+            return 0 if out.get("ready") else 1
+        if args.cmd == "up":
+            out = lifecycle.stack_up(arm_desktop_plane=not args.no_arm_desktop)
+            print(json.dumps(out, indent=2, default=str)[:20000])
+            return 0 if out.get("ok") else 1
+        out = lifecycle.stack_down(disarm_desktop_plane=not args.keep_armed)
+        print(json.dumps(out, indent=2, default=str)[:20000])
+        return 0 if out.get("ok") else 1
+
     host = AssuredPlaneHost()
 
     if args.cmd == "status":

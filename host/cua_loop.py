@@ -15,11 +15,16 @@ from typing import Any, Callable
 STATE_PATH = Path.home() / "agent-control" / "receipts" / "cua-session.json"
 
 
+# V1 work-session defaults (still budgeted — not unlimited ambient RPA)
+DEFAULT_MAX_STEPS = 40
+DEFAULT_MAX_SECONDS = 1800.0
+
+
 @dataclass
 class CuaSession:
     session_id: str
-    max_steps: int = 20
-    max_seconds: float = 600.0
+    max_steps: int = DEFAULT_MAX_STEPS
+    max_seconds: float = DEFAULT_MAX_SECONDS
     steps: int = 0
     started: float = field(default_factory=time.time)
     history: list[dict[str, Any]] = field(default_factory=list)
@@ -103,12 +108,17 @@ class CuaController:
             encoding="utf-8",
         )
 
-    def start(self, *, max_steps: int = 20, max_seconds: float = 600.0) -> dict[str, Any]:
+    def start(
+        self,
+        *,
+        max_steps: int = DEFAULT_MAX_STEPS,
+        max_seconds: float = DEFAULT_MAX_SECONDS,
+    ) -> dict[str, Any]:
         sid = f"cua-{int(time.time())}"
         self._session = CuaSession(
             session_id=sid,
-            max_steps=max(1, min(int(max_steps), 100)),
-            max_seconds=max(30.0, min(float(max_seconds), 3600.0)),
+            max_steps=max(1, min(int(max_steps), 200)),
+            max_seconds=max(30.0, min(float(max_seconds), 7200.0)),
         )
         self._save()
         return {
@@ -117,6 +127,7 @@ class CuaController:
             "session_id": sid,
             "budget": self._session.remaining(),
             "claim": "session CUA under arm/allowlist — not ambient unlimited OS control",
+            "v1": "ambient_under_leash",
         }
 
     def stop(self, reason: str = "operator_stop") -> dict[str, Any]:
@@ -172,20 +183,35 @@ class CuaController:
                 "ax": self._call("desktop.ax", {"max": 30}),
                 "screenshot": self._call("desktop.screenshot", {}),
             }
+        # V1: layout-first — window geometry always in observe (no blind full-screen coords)
+        layout = self._call("desktop.layout", {})
         browser = self._call("browser.status", {})
         plane = self._call("plane.status", {})
         out = {
             "ok": True,
             "code": "CUA_OBSERVE",
             "desktop": self._unwrap(desktop),
+            "layout": self._unwrap(layout),
             "browser": self._unwrap(browser),
             "plane": self._unwrap(plane),
+            "gui_hint": "prefer desktop.click_window (rel) or browser.* for Chrome; never guess full-screen coords",
             "session": self.status(),
         }
         if self._session:
             self._session.history.append({"kind": "observe", "ts": time.time()})
             self._save()
         return out
+
+    # GUI tools that must never run without fresh window geometry
+    _LAYOUT_FIRST_TOOLS = frozenset(
+        {
+            "desktop.click",
+            "desktop.click_window",
+            "desktop.ax_click",
+            "desktop.screenshot_window",
+            "desktop.region_screenshot",
+        }
+    )
 
     def step(self, args: dict[str, Any]) -> dict[str, Any]:
         """Execute one plane tool as a CUA step (gated by host pack)."""
@@ -205,6 +231,31 @@ class CuaController:
         if tool in ("shell_exec",) or tool.startswith("shell_exec"):
             return {"ok": False, "code": "CUA_BLOCKED", "detail": "ambient shell_exec not in CUA"}
 
+        # V1 ambient: layout-first for GUI clicks/shots (does not consume an extra budget step)
+        layout_snapshot: Any = None
+        if tool in self._LAYOUT_FIRST_TOOLS:
+            layout_out = self._call("desktop.layout", {})
+            layout_snapshot = self._unwrap(layout_out)
+            # Prefer window-local click when agent still used absolute desktop.click
+            if tool == "desktop.click" and tool_args.get("app"):
+                # rewrite to click_window when app provided alongside coords
+                if tool_args.get("rel_x") is not None or tool_args.get("local_x") is not None:
+                    tool = "desktop.click_window"
+                    tool_args = {
+                        k: v
+                        for k, v in tool_args.items()
+                        if k
+                        in (
+                            "app",
+                            "title",
+                            "rel_x",
+                            "rel_y",
+                            "local_x",
+                            "local_y",
+                            "focus",
+                        )
+                    }
+
         result = self._call(tool, tool_args)
         self._session.steps += 1
         entry = {
@@ -215,16 +266,24 @@ class CuaController:
             "verdict": (result.get("verdict") or {}).get("decision"),
             "code": ((result.get("result") or {}) if isinstance(result.get("result"), dict) else {}).get("code")
             or (result.get("verdict") or {}).get("code"),
+            "layout_first": layout_snapshot is not None,
         }
         self._session.history.append(entry)
         self._save()
-        return {
+        out: dict[str, Any] = {
             "ok": True,
             "code": "CUA_STEP",
             "step": self._session.steps,
             "budget": self._session.remaining(),
             "result": result,
         }
+        if layout_snapshot is not None:
+            out["layout"] = layout_snapshot
+            out["gui_hint"] = (
+                "layout refreshed before this step — prefer click_window rel coords; "
+                "avoid full-screen desktop.click when multi-window"
+            )
+        return out
 
     def _has_desktop_cua(self) -> bool:
         # pack may list desktop.cua_observe
