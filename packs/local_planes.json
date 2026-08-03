@@ -2,7 +2,7 @@
   "meta": {
     "id": "local_planes",
     "description": "Planes + gated shell + CUA session tools. Deny-by-default. Not ambient OS control.",
-    "version": 6
+    "version": 7
   },
   "tools": {
     "plane.status": {
@@ -96,6 +96,56 @@
         "timeout"
       ],
       "max_arg_bytes": 4096,
+      "forbidden_args": [
+        "token",
+        "password",
+        "api_key"
+      ]
+    },
+    "browser.x_article_search": {
+      "description": "Keyword search X for posts/articles \u2014 result cards only",
+      "max_blast": 1,
+      "required_args": [
+        "query"
+      ],
+      "allowed_args": [
+        "query",
+        "q",
+        "url",
+        "sort",
+        "max_results",
+        "max_scrolls",
+        "articles_only",
+        "timeout"
+      ],
+      "max_arg_bytes": 2048,
+      "forbidden_args": [
+        "token",
+        "password",
+        "api_key"
+      ]
+    },
+    "browser.x_article_curate": {
+      "description": "Search X by keywords, rank cards, optionally deep-read top N bodies",
+      "max_blast": 2,
+      "required_args": [
+        "query"
+      ],
+      "allowed_args": [
+        "query",
+        "q",
+        "sort",
+        "max_results",
+        "top_n",
+        "read_top",
+        "max_scrolls",
+        "articles_only",
+        "read_max_scrolls",
+        "read_max_chars",
+        "read_timeout",
+        "timeout"
+      ],
+      "max_arg_bytes": 2048,
       "forbidden_args": [
         "token",
         "password",

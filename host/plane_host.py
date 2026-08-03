@@ -98,6 +98,8 @@ class AssuredPlaneHost:
             "browser.type": self.browser.type,
             "browser.scroll": self.browser.scroll,
             "browser.x_article_read": self.browser.x_article_read,
+            "browser.x_article_search": self.browser.x_article_search,
+            "browser.x_article_curate": self.browser.x_article_curate,
             "browser.x_draft": self.browser.x_draft,
             "browser.x_post": self.browser.x_post,
             "desktop.status": self.desktop.status,

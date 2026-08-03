@@ -68,6 +68,10 @@ def route_task(task: str) -> Route:
             "x article",
             "full article",
             "thread",
+            "search x",
+            "search on x",
+            "curate",
+            "keyword",
         )
     ):
         return Route(
@@ -76,6 +80,8 @@ def route_task(task: str) -> Route:
             (
                 "browser.navigate",
                 "browser.snapshot",
+                "browser.x_article_search",
+                "browser.x_article_curate",
                 "browser.x_article_read",
                 "browser.x_draft",
                 "browser.x_post",
