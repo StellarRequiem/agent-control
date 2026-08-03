@@ -67,7 +67,9 @@ class BrowserHandlers:
             body["max_chars"] = int(args["max_chars"])
         if args.get("timeout") is not None:
             body["timeout"] = float(args["timeout"])
-        res = http_json(self.base, "/v1/action", body)
+        # Scroll extract can take >90s; default host HTTP timeout is 90
+        http_timeout = float(args.get("timeout") or 130.0)
+        res = http_json(self.base, "/v1/action", body, timeout=http_timeout)
         # Normalize for agent: promote data fields
         if res.get("ok") and isinstance(res.get("data"), dict):
             data = res["data"]
