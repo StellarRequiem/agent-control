@@ -57,6 +57,19 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--auth-only", action="store_true", help="authorize without executing handler")
     sub.add_parser("smoke", help="offline + optional live cannot-bypass smoke")
     sub.add_parser("tools", help="list pack tools")
+    ld = sub.add_parser(
+        "lockdown",
+        help="Phase C abhorrent lockdown (proxies agent-soc lockdown)",
+    )
+    ld.add_argument(
+        "action",
+        nargs="?",
+        default="status",
+        choices=["status", "engage", "clear"],
+    )
+    ld.add_argument("--reason", default="agent-control lockdown")
+    ld.add_argument("--disarm", action="store_true")
+    ld.add_argument("--force", action="store_true")
 
     args = p.parse_args(argv)
 
@@ -123,6 +136,26 @@ def main(argv: list[str] | None = None) -> int:
         from smoke.cannot_bypass_planes import run_smoke
 
         return run_smoke(live=True)
+
+    if args.cmd == "lockdown":
+        # Proxy to agent-soc — single operator surface
+        import subprocess
+
+        cmd = [
+            sys.executable,
+            str(Path.home() / "agent-soc" / "cli.py"),
+            "lockdown",
+            args.action,
+            "--reason",
+            args.reason,
+        ]
+        if args.disarm:
+            cmd.append("--disarm")
+        if args.force:
+            cmd.append("--force")
+        p = subprocess.run(cmd, capture_output=True, text=True)
+        print((p.stdout or p.stderr or "")[:20000])
+        return p.returncode
 
     return 2
 
