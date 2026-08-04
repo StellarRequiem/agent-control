@@ -8,6 +8,7 @@ Does not invent metrics; only re-runnable pass/fail.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -99,6 +100,166 @@ def main(argv: list[str] | None = None) -> int:
             bv_init.unlink()
         except OSError:
             pass
+
+    # Full defensive pass (Shai-Hulud–class host hunt)
+    def_marker = ROOT / "receipts" / "RUN_DEFENSIVE_PASS"
+    if def_marker.is_file() or (HOME / "blue-vaccine" / "RUN_DEFENSIVE_PASS").is_file():
+        env = {**os.environ}
+        if (HOME / "blue-vaccine" / "APPLY_VACCINE").is_file():
+            env["APPLY_VACCINE"] = "1"
+        try:
+            p = subprocess.run(
+                [
+                    sys.executable,
+                    str(HOME / "blue-vaccine" / "scripts" / "full_defensive_pass.py"),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=600,
+                env=env,
+            )
+            print((p.stdout or "")[:50000])
+            if p.stderr:
+                print((p.stderr or "")[:4000], file=sys.stderr)
+        except Exception as e:
+            print(json.dumps({"ok": False, "defensive_pass_error": str(e)}))
+        for m in (def_marker, HOME / "blue-vaccine" / "RUN_DEFENSIVE_PASS"):
+            try:
+                if m.is_file():
+                    m.unlink()
+            except OSError:
+                pass
+
+    deep_marker = ROOT / "receipts" / "RUN_DEEP_HUNT"
+    if deep_marker.is_file() or (HOME / "blue-vaccine" / "RUN_DEEP_HUNT").is_file():
+        try:
+            p = subprocess.run(
+                [
+                    sys.executable,
+                    str(HOME / "blue-vaccine" / "scripts" / "deep_hunt.py"),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=900,
+            )
+            print((p.stdout or "")[:50000])
+            if p.stderr:
+                print((p.stderr or "")[:4000], file=sys.stderr)
+        except Exception as e:
+            print(json.dumps({"ok": False, "deep_hunt_error": str(e)}))
+        for m in (deep_marker, HOME / "blue-vaccine" / "RUN_DEEP_HUNT"):
+            try:
+                if m.is_file():
+                    m.unlink()
+            except OSError:
+                pass
+
+    cred_marker = ROOT / "receipts" / "RUN_CRED_INVENTORY"
+    if cred_marker.is_file() or (HOME / "blue-vaccine" / "RUN_CRED_INVENTORY").is_file():
+        try:
+            p = subprocess.run(
+                [
+                    sys.executable,
+                    str(HOME / "blue-vaccine" / "scripts" / "cred_inventory.py"),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            print((p.stdout or "")[:50000])
+        except Exception as e:
+            print(json.dumps({"ok": False, "cred_inventory_error": str(e)}))
+        for m in (cred_marker, HOME / "blue-vaccine" / "RUN_CRED_INVENTORY"):
+            try:
+                if m.is_file():
+                    m.unlink()
+            except OSError:
+                pass
+
+    orbit_marker = ROOT / "receipts" / "RUN_ORBIT_SEED"
+    if orbit_marker.is_file() or (HOME / "blue-vaccine" / "RUN_ORBIT_SEED").is_file():
+        try:
+            p = subprocess.run(
+                [
+                    sys.executable,
+                    str(HOME / "blue-vaccine" / "cli.py"),
+                    "orbit",
+                    "seed",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=str(HOME / "blue-vaccine"),
+            )
+            print((p.stdout or "")[:20000])
+            p2 = subprocess.run(
+                [
+                    sys.executable,
+                    str(HOME / "blue-vaccine" / "cli.py"),
+                    "orbit",
+                    "due",
+                    "--json",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=str(HOME / "blue-vaccine"),
+            )
+            print((p2.stdout or "")[:30000])
+        except Exception as e:
+            print(json.dumps({"ok": False, "orbit_error": str(e)}))
+        for m in (orbit_marker, HOME / "blue-vaccine" / "RUN_ORBIT_SEED"):
+            try:
+                if m.is_file():
+                    m.unlink()
+            except OSError:
+                pass
+
+    hyg_marker = ROOT / "receipts" / "RUN_ORBIT_HYGIENE"
+    if hyg_marker.is_file() or (HOME / "blue-vaccine" / "RUN_ORBIT_HYGIENE").is_file():
+        try:
+            p = subprocess.run(
+                [
+                    sys.executable,
+                    str(HOME / "blue-vaccine" / "scripts" / "run_hygiene_apply.py"),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            print((p.stdout or "")[:10000])
+        except Exception as e:
+            print(json.dumps({"ok": False, "hygiene_error": str(e)}))
+        for m in (hyg_marker, HOME / "blue-vaccine" / "RUN_ORBIT_HYGIENE"):
+            try:
+                if m.is_file():
+                    m.unlink()
+            except OSError:
+                pass
+
+    bv_push = ROOT / "receipts" / "RUN_BV_PUSH"
+    if bv_push.is_file() or (HOME / "blue-vaccine" / "RUN_BV_PUSH").is_file():
+        try:
+            p = subprocess.run(
+                [
+                    sys.executable,
+                    str(HOME / "blue-vaccine" / "scripts" / "git_commit_push.py"),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
+            print((p.stdout or "")[:30000])
+            if p.stderr:
+                print((p.stderr or "")[:5000], file=sys.stderr)
+        except Exception as e:
+            print(json.dumps({"ok": False, "bv_push_error": str(e)}))
+        for m in (bv_push, HOME / "blue-vaccine" / "RUN_BV_PUSH"):
+            try:
+                if m.is_file():
+                    m.unlink()
+            except OSError:
+                pass
 
     # Corpus v1 generator (agent-soc sibling)
     gen_marker = HOME / "agent-soc" / "corpora" / "RUN_GEN_V1"
