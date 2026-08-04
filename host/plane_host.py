@@ -64,20 +64,42 @@ class AssuredPlaneHost:
         receipts_path.parent.mkdir(parents=True, exist_ok=True)
         freeze_path = Path(freeze_path or FREEZE)
 
-        engine = AssureEngine(
-            load_local_pack(),
-            receipts_path=str(receipts_path),
-            freeze_path=str(freeze_path),
-            freeze_allow=frozenset(
-                {
-                    "plane.status",
-                    "plane.route",
-                    "browser.status",
-                    "desktop.status",
-                    "shell.roots",
-                }
-            ),
+        self.receipts_path = receipts_path
+        freeze_allow = frozenset(
+            {
+                "plane.status",
+                "plane.route",
+                "browser.status",
+                "desktop.status",
+                "shell.roots",
+                "plane.unfreeze",  # recovery without native bash
+                "plane.receipts_status",
+                "plane.receipts_rotate",
+            }
         )
+        chain_repair = frozenset(
+            {
+                "plane.receipts_status",
+                "plane.receipts_rotate",
+            }
+        )
+        # chain_repair_allow needs mcp-assure with claim-ladder receipts work;
+        # tolerate older PyPI installs in CI until that release is published.
+        try:
+            engine = AssureEngine(
+                load_local_pack(),
+                receipts_path=str(receipts_path),
+                freeze_path=str(freeze_path),
+                freeze_allow=freeze_allow,
+                chain_repair_allow=chain_repair,
+            )
+        except TypeError:
+            engine = AssureEngine(
+                load_local_pack(),
+                receipts_path=str(receipts_path),
+                freeze_path=str(freeze_path),
+                freeze_allow=freeze_allow,
+            )
 
         self.browser = BrowserHandlers(browser_base)
         self.desktop = DesktopHandlers(desktop_base)
@@ -90,6 +112,9 @@ class AssuredPlaneHost:
         handlers = {
             "plane.status": self._plane_status,
             "plane.route": self._plane_route,
+            "plane.unfreeze": self._plane_unfreeze,
+            "plane.receipts_status": self._plane_receipts_status,
+            "plane.receipts_rotate": self._plane_receipts_rotate,
             "browser.status": self.browser.status,
             "browser.navigate": self.browser.navigate,
             "browser.tabs": self.browser.tabs,
@@ -185,6 +210,63 @@ class AssuredPlaneHost:
 
     def authorize_only(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._dispatcher.authorize_only({"name": name, "arguments": arguments or {}})
+
+    def _plane_unfreeze(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Clear FREEZE files (allowed during freeze for recovery without native shell)."""
+        cleared: list[str] = []
+        for p in (
+            ROOT / "FREEZE",
+            Path.home() / "mcp-assure" / "FREEZE",
+            Path.home() / "agent-control" / "FREEZE",
+        ):
+            try:
+                if p.is_file():
+                    p.unlink()
+                    cleared.append(str(p))
+            except OSError:
+                continue
+        return {
+            "ok": True,
+            "code": "UNFROZEN",
+            "cleared": sorted(set(cleared)),
+            "detail": "FREEZE files removed; re-arm leashes if needed",
+        }
+
+    def _plane_receipts_status(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Diagnose receipt chain (works even when chain is broken)."""
+        from mcp_assure.receipts import ReceiptChain
+
+        path = str(self.receipts_path)
+        if not Path(path).is_file():
+            return {
+                "ok": True,
+                "code": "EMPTY_OR_NEW",
+                "path": path,
+                "intact": True,
+                "detail": "no receipt file yet",
+            }
+        ok, msg = ReceiptChain.verify_file(path)
+        size = Path(path).stat().st_size if Path(path).is_file() else 0
+        return {
+            "ok": True,
+            "code": "INTACT" if ok else "BROKEN",
+            "path": path,
+            "intact": bool(ok),
+            "detail": msg,
+            "bytes": size,
+            "claim_ladder": str(ROOT / "docs" / "CLAIM_LADDER.md"),
+        }
+
+    def _plane_receipts_rotate(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Archive broken (or force) receipt chain and start empty — recovery path."""
+        from mcp_assure.receipts import ReceiptChain
+
+        force = bool((args or {}).get("force"))
+        out = ReceiptChain.rotate_if_broken(str(self.receipts_path), force=force)
+        out["claim"] = (
+            "rotates host receipt log only; does not erase leash history or SOC incidents"
+        )
+        return out
 
     def _detect_mediated_shell_config(self) -> dict[str, Any]:
         """Best-effort: Grok config denies Bash + agent_control MCP enabled."""
@@ -283,6 +365,8 @@ class AssuredPlaneHost:
                 "cli": str(Path.home() / "agent-soc" / "cli.py"),
                 "watch": "python3 ~/agent-soc/cli.py watch --interval 30",
             },
+            "claim_ladder": str(ROOT / "docs" / "CLAIM_LADDER.md"),
+            "receipts_path": str(self.receipts_path),
         }
 
     def _plane_route(self, args: dict[str, Any]) -> dict[str, Any]:

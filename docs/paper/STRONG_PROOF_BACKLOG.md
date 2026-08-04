@@ -88,10 +88,16 @@ Claim ceiling still: **native_runtime_shell_gated=false**, **enterprise_soc=fals
 2. ~~**Freeze-cycle**~~ **DONE** — live in proof_suite; offline FREEZE file in CI.  
 3. ~~**Secret vs path collision**~~ **DONE**.  
 4. ~~**Refresh CLAIMS.md**~~ **DONE** (2026-08-03 versions).  
-5. **Ship papers site slice** (operator `/ship-site`) — portfolio draft ready, not live.  
+5. ~~**Ship papers site slice**~~ **DONE** 2026-08-04 — https://xclusivexo.com/papers/mediated-control-plane/  
 6. ~~**Labeled trace corpus v0**~~ **DONE** — 25/25 hits, 0 FP on synthetic corpus; `hit_table.py`.  
-7. **Weekly ops log template** — freezes, FP notes, arm hours.  
-8. Expand corpus to 100+ with held-out 20% (still no public % claim until N/study design).  
+7. ~~**Weekly ops log template**~~ **DONE** — `~/agent-soc/ops_log/`.  
+8. ~~**Holdout design + split**~~ **DONE** — `HOLDOUT_DESIGN.md` · `hit_table.py --split` (N=100 expand still open).  
+9. ~~**Claim ladder**~~ **DONE** — `docs/CLAIM_LADDER.md`.  
+10. ~~**Receipt multi-writer + rotate**~~ **DONE** — mcp-assure flock/re-sync; `plane.receipts_*`.  
+11. ~~**agent-control CI offline**~~ **DONE** — `.github/workflows/ci.yml`.  
+12. **Expand corpus to 100+** (still no public % until study freeze).  
+13. **Shell/FS mediation depth** — reduce native file-edit dependency.  
+14. **Third-machine re-run instructions**.
 
 ### Tier 2 — stronger paper / arXiv
 

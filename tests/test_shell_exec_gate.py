@@ -68,12 +68,32 @@ def test_git_dash_c_denied():
     assert out["ok"] is False and out["code"] == "DANGEROUS_FLAG"
 
 
-# ---- git is read-only -----------------------------------------------------
+# ---- git: local add/commit ok; remote/history rewrite denied -------------
 
-def test_git_write_subcommands_denied():
-    for sub in ("push", "fetch", "config", "commit", "reset", "clean", "checkout"):
+def test_git_dangerous_write_subcommands_denied():
+    for sub in ("push", "fetch", "config", "reset", "clean", "checkout", "rebase", "merge"):
         out = sh.exec({"argv": ["git", sub]})
         assert out["ok"] is False and out["code"] == "GIT_SUBCOMMAND_DENIED", sub
+
+
+def test_git_commit_requires_message_flag():
+    out = sh.exec({"argv": ["git", "commit"], "cwd": str(REPO)})
+    assert out["ok"] is False and out["code"] == "GIT_COMMIT_MSG_REQUIRED"
+
+
+def test_git_commit_amend_denied():
+    out = sh.exec(
+        {"argv": ["git", "commit", "--amend", "-m", "nope"], "cwd": str(REPO)}
+    )
+    assert out["ok"] is False and out["code"] == "GIT_COMMIT_FLAG_DENIED"
+
+
+def test_git_add_is_allowed_subcommand():
+    # authz only — dry path: -n is allowlisted; should not fail GIT_SUBCOMMAND_DENIED
+    out = sh.exec({"argv": ["git", "add", "-n", "."], "cwd": str(REPO)})
+    assert out.get("code") != "GIT_SUBCOMMAND_DENIED"
+    # may RAN or NONZERO depending on tree; gate must not reject subcommand
+    assert out["code"] in ("RAN", "NONZERO", "GIT_ADD_FLAG_DENIED") or out.get("ok") is True
 
 
 # ---- path confinement -----------------------------------------------------

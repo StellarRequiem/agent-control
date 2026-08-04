@@ -66,6 +66,20 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
         str(Path.home() / "agent-control" / "cli.py"),
         "session",
     ],
+    "agent_control_pytest": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        str(Path.home() / "agent-control" / "tests"),
+    ],
+    "mcp_assure_pytest": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        "-m",
+        "pytest",
+        "-q",
+        str(Path.home() / "mcp-assure" / "tests"),
+    ],
 }
 
 MAX_READ_BYTES = 64_000
@@ -95,13 +109,39 @@ DANGEROUS_FLAGS = frozenset(
      "-c", "-C", "--exec-path", "--upload-pack", "--receive-pack",
      "-e", "--eval", "-o", "--output", "-O"}
 )
-# git may only READ — no config/hooks/push/fetch that can run code or leave scope
+# git read — inspection only
 GIT_READ_SUBCMDS = frozenset(
     {"status", "diff", "log", "show", "branch", "rev-parse", "ls-files",
      "describe", "blame", "shortlog", "tag", "remote"}
 )
+# local write only — never push/fetch/config/reset/clean (claim ladder: mediated commits)
+GIT_LOCAL_WRITE_SUBCMDS = frozenset({"add", "commit"})
+GIT_ALLOWED_SUBCMDS = GIT_READ_SUBCMDS | GIT_LOCAL_WRITE_SUBCMDS
+# commit flags we refuse (history rewrite / hooks / signing via custom)
+GIT_COMMIT_DENIED_FLAGS = frozenset(
+    {
+        "--amend",
+        "--no-verify",
+        "-n",
+        "--allow-empty",
+        "--allow-empty-message",
+        "-F",
+        "--file",
+        "-t",
+        "--template",
+        "--exec",
+        "-e",
+        "--edit",
+        "--author",
+        "--date",
+        "-S",
+        "--gpg-sign",
+        "--no-gpg-sign",
+    }
+)
 MAX_ARGV = 40
 MAX_TOKEN = 512
+MAX_COMMIT_MSG = 2000
 
 
 class ShellHandlers:
@@ -235,10 +275,9 @@ class ShellHandlers:
         """Run a validated argv (never a shell string) through the gate.
 
         Deny-by-default: interpreter-free executable allowlist, per-binary
-        dangerous-flag denylist, git read-subcommands only, path confinement
-        (no absolute paths, no parent traversal), rooted cwd, shell=False.
-        This is the covered path meant to replace Grok's native shell for
-        file/test/git inspection — it is NOT a general bash.
+        dangerous-flag denylist, git read + local add/commit only (no push),
+        path confinement (no absolute paths, no parent traversal), rooted cwd,
+        shell=False. NOT a general bash.
         """
         argv = args.get("argv")
         if not isinstance(argv, list) or not argv or not all(isinstance(t, str) for t in argv):
@@ -269,10 +308,9 @@ class ShellHandlers:
                 return {"ok": False, "code": "PATH_TRAVERSAL", "detail": f"parent segment in {tok!r}"}
 
         if exe == "git":
-            sub = argv[1] if len(argv) > 1 else ""
-            if sub not in GIT_READ_SUBCMDS:
-                return {"ok": False, "code": "GIT_SUBCOMMAND_DENIED",
-                        "detail": f"git {sub!r} not a read subcommand", "allowed": sorted(GIT_READ_SUBCMDS)}
+            git_err = self._validate_git_argv(argv)
+            if git_err is not None:
+                return git_err
 
         # cwd: explicit (rooted) or first git root / package root
         cwd_arg = str(args.get("cwd") or "").strip()
@@ -312,6 +350,66 @@ class ShellHandlers:
                 "stderr": (p.stderr or "")[:5000],
             },
         }
+
+    def _validate_git_argv(self, argv: list[str]) -> dict[str, Any] | None:
+        """Allow read + local add/commit; hard-deny push and escape hatches."""
+        sub = argv[1] if len(argv) > 1 else ""
+        if sub not in GIT_ALLOWED_SUBCMDS:
+            return {
+                "ok": False,
+                "code": "GIT_SUBCOMMAND_DENIED",
+                "detail": f"git {sub!r} not allowed (read + local add/commit only; no push)",
+                "allowed": sorted(GIT_ALLOWED_SUBCMDS),
+            }
+        if sub == "commit":
+            if "-m" not in argv:
+                return {
+                    "ok": False,
+                    "code": "GIT_COMMIT_MSG_REQUIRED",
+                    "detail": "git commit requires -m <message> (no editor / -F)",
+                }
+            for tok in argv[2:]:
+                if tok in GIT_COMMIT_DENIED_FLAGS or tok.startswith("--amend"):
+                    return {
+                        "ok": False,
+                        "code": "GIT_COMMIT_FLAG_DENIED",
+                        "detail": f"commit flag {tok!r} denied",
+                    }
+            # message length after each -m
+            i = 0
+            while i < len(argv):
+                if argv[i] == "-m" and i + 1 < len(argv):
+                    if len(argv[i + 1]) > MAX_COMMIT_MSG:
+                        return {
+                            "ok": False,
+                            "code": "GIT_COMMIT_MSG_TOO_LONG",
+                            "detail": f"max {MAX_COMMIT_MSG} chars",
+                        }
+                    i += 2
+                    continue
+                i += 1
+        if sub == "add":
+            # refuse magic pathspecs that escape
+            for tok in argv[2:]:
+                if tok.startswith(":") or tok.startswith("-") and tok not in (
+                    "-A",
+                    "--all",
+                    "-u",
+                    "--update",
+                    "-n",
+                    "--dry-run",
+                    "-v",
+                    "--verbose",
+                    "-f",
+                    "--force",
+                ):
+                    if tok.startswith("-"):
+                        return {
+                            "ok": False,
+                            "code": "GIT_ADD_FLAG_DENIED",
+                            "detail": f"git add flag {tok!r} denied",
+                        }
+        return None
 
     def run(self, args: dict[str, Any]) -> dict[str, Any]:
         """Run a *named* allowlisted command only."""

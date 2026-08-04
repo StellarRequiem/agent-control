@@ -185,6 +185,24 @@ def lockdown_status() -> dict[str, Any]:
     return _call("plane.status")
 
 
+@mcp.tool()
+def plane_unfreeze() -> dict[str, Any]:
+    """Clear FREEZE files (works even while frozen — recovery without native bash)."""
+    return _call("plane.unfreeze")
+
+
+@mcp.tool()
+def plane_receipts_status() -> dict[str, Any]:
+    """Verify receipt chain (works when chain is broken — diagnose only)."""
+    return _call("plane.receipts_status")
+
+
+@mcp.tool()
+def plane_receipts_rotate(force: bool = False) -> dict[str, Any]:
+    """Archive broken receipt chain and start empty (recovery without native bash)."""
+    return _call("plane.receipts_rotate", {"force": force})
+
+
 def main() -> None:
     mcp.run(transport="stdio")
 

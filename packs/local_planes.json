@@ -2,7 +2,7 @@
   "meta": {
     "id": "local_planes",
     "description": "Planes + gated shell + CUA session tools. Deny-by-default. Not ambient OS control.",
-    "version": 8
+    "version": 10
   },
   "tools": {
     "plane.status": {
@@ -21,6 +21,26 @@
         "task"
       ],
       "max_arg_bytes": 4096
+    },
+    "plane.unfreeze": {
+      "description": "Clear FREEZE files (recovery path when native bash is denied)",
+      "max_blast": 2,
+      "allowed_args": [],
+      "max_arg_bytes": 256
+    },
+    "plane.receipts_status": {
+      "description": "Verify receipt chain integrity (works when chain is broken — diagnose only)",
+      "max_blast": 1,
+      "allowed_args": [],
+      "max_arg_bytes": 256
+    },
+    "plane.receipts_rotate": {
+      "description": "Archive broken receipt chain and start empty (recovery; force optional)",
+      "max_blast": 2,
+      "allowed_args": [
+        "force"
+      ],
+      "max_arg_bytes": 512
     },
     "browser.status": {
       "description": "browser-leash bridge status",

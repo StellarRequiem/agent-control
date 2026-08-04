@@ -37,6 +37,8 @@ python3 ~/agent-control/cli.py call browser.x_post --args-json '{"operator_confi
 
 ## Docs
 
+- `docs/CLAIM_LADDER.md` — how claims promote from ceiling → target (evidence checklist)
+- `docs/MEDIATED_AMBIENT.md` — force routing + FREEZE/CHAIN recovery
 - `ARCHITECTURE.md` — diagram and contracts  
 - `docs/CLAIMS_PATH.md` — claim upgrade map  
 - `~/desktop-leash/docs/CLAIMS.md` — stack hard refuses  
