@@ -20,21 +20,20 @@ JOBS: list[tuple[Path, list[str], str]] = [
     (
         HOME / "agent-control",
         [
+            "docs/GAP_BRIDGE.md",
             "scripts/scoped_commits.py",
         ],
-        "Point scoped_commits at career publish hygiene jobs\n\n"
-        "Keep mediated commit helper aligned with local-only ops/career policy.",
+        "Point harden handoff at position freeze\n\n"
+        "GAP_BRIDGE links POSITION_FREEZE so Claude systems work does not reopen Phase A.",
     ),
     (
         HOME / "ops",
         [
+            "POSITION_FREEZE_2026-08-04.md",
             "career/README.md",
-            "career/BACKGROUND_INTAKE.md",
-            "career/PUBLISH_STATUS.md",
-            "career/APPLY_CHECKLIST.md",
         ],
-        "Keep career packet local-only with publish policy\n\n"
-        "Document what is public vs private; strip EEO demographics from intake git.",
+        "Freeze mediated-control + career posture for Claude harden lane\n\n"
+        "Settled public stack and claim ceilings; private career stays local-only.",
     ),
 ]
 

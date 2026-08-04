@@ -2,7 +2,8 @@
 
 **Updated:** 2026-08-04  
 **Purpose:** How we close residuals that still weaken Grok Build / claim ceilings.  
-**Rule:** promote claim only when evidence is green (see `CLAIM_LADDER.md`).
+**Rule:** promote claim only when evidence is green (see `CLAIM_LADDER.md`).  
+**Handoff freeze:** `~/ops/POSITION_FREEZE_2026-08-04.md` — Claude harden work starts from this plan; do not reopen settled Phase A.
 
 Live ceiling today (`plane.status`):
 
