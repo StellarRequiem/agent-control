@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Launch Grok with native shell removed (headless) OR print TUI guidance.
+# Interactive TUI cannot use --disallowed-tools; use permission deny + MCP instead.
+set -euo pipefail
+GROK="${GROK_BIN:-$HOME/.grok/bin/grok}"
+
+if [[ "${1:-}" == "-p" || "${1:-}" == "--single" || "${1:-}" == "agent" ]]; then
+  # headless / agent: strip native shell tool
+  exec "$GROK" --disallowed-tools "run_terminal_cmd" "$@"
+fi
+
+# Interactive: ensure config is mediated (permission deny + MCP)
+echo "mediated ambient: interactive mode uses ~/.grok/config.toml permission deny + MCP agent_control" >&2
+echo "  native Bash should be denied; use MCP tools agent_control__* / plane_call" >&2
+echo "  headless: $0 -p \"...\"  (disallows run_terminal_cmd)" >&2
+exec "$GROK" "$@"

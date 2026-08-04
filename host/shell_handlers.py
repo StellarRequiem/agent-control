@@ -26,6 +26,7 @@ DEFAULT_ROOTS = (
     Path.home() / "browser-leash",
     Path.home() / "portfolio",
     Path.home() / "ops",
+    Path.home() / "agent-soc",
     Path.home() / "Forest-Soul-Forge",
 )
 
@@ -46,6 +47,24 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
         "python3",
         str(Path.home() / "agent-control" / "cli.py"),
         "smoke",
+    ],
+    "agent_control_proof_offline": [
+        "python3",
+        str(Path.home() / "agent-control" / "smoke" / "proof_suite.py"),
+        "--offline",
+    ],
+    "agent_soc_purple": [
+        "python3",
+        str(Path.home() / "agent-soc" / "purple.py"),
+    ],
+    "agent_soc_hit_table": [
+        "python3",
+        str(Path.home() / "agent-soc" / "hit_table.py"),
+    ],
+    "agent_control_session": [
+        "python3",
+        str(Path.home() / "agent-control" / "cli.py"),
+        "session",
     ],
 }
 

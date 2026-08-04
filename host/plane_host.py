@@ -186,9 +186,51 @@ class AssuredPlaneHost:
     def authorize_only(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._dispatcher.authorize_only({"name": name, "arguments": arguments or {}})
 
+    def _detect_mediated_shell_config(self) -> dict[str, Any]:
+        """Best-effort: Grok config denies Bash + agent_control MCP enabled."""
+        cfg = Path.home() / ".grok" / "config.toml"
+        text = ""
+        try:
+            text = cfg.read_text(encoding="utf-8")
+        except OSError:
+            return {"native_bash_deny_configured": False, "agent_control_mcp_configured": False}
+        low = text.lower()
+        bash_deny = (
+            "bash(*)" in low
+            or '"bash"' in low
+            or "bash" in low
+            and "[permission]" in low
+            and "deny" in low
+        )
+        # more precise
+        bash_deny = any(
+            s in text
+            for s in (
+                '"Bash(*)"',
+                "'Bash(*)'",
+                '"Bash"',
+                "Bash(*)",
+                'tool = "bash"',
+                'tool = "Bash"',
+            )
+        )
+        mcp_on = "mcp_servers.agent_control" in text and "enabled = true" in text
+        # if agent_control block has enabled = false later, rough check
+        if "mcp_servers.agent_control" in text:
+            # slice block
+            idx = text.find("[mcp_servers.agent_control]")
+            chunk = text[idx : idx + 400] if idx >= 0 else ""
+            mcp_on = "enabled = true" in chunk and "enabled = false" not in chunk
+        return {
+            "native_bash_deny_configured": bash_deny,
+            "agent_control_mcp_configured": mcp_on,
+            "config": str(cfg),
+        }
+
     def _plane_status(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         b = http_json(self.browser_base, "/v1/status")
         d = http_json(self.desktop_base, "/v1/status")
+        med = self._detect_mediated_shell_config()
         return {
             "ok": True,
             "host": "agent-control",
@@ -208,13 +250,20 @@ class AssuredPlaneHost:
                 "require_d4_confirm": d.get("require_d4_confirm"),
                 "code": d.get("code"),
             },
+            "mediated_deployment": med,
             "claim_ceiling": {
-                "every_grok_tool_gated": False,
+                "every_grok_tool_gated": False,  # file edits still native
                 "plane_tools_gated": True,
                 "shell_subset_gated": True,
                 "gated_shell_exec": True,
                 "ambient_shell_exec": False,
-                "native_runtime_shell_gated": False,
+                # True only when Grok deny Bash + MCP agent_control configured
+                "native_runtime_shell_gated": bool(
+                    med.get("native_bash_deny_configured")
+                    and med.get("agent_control_mcp_configured")
+                ),
+                "native_shell_gate_mechanism": "grok_permission_deny+mcp_agent_control",
+                "file_edit_tools_native": True,
                 "auto_post": False,
                 "session_cua": True,
                 "full_cua_unlimited": False,

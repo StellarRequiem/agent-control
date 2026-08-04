@@ -1,42 +1,46 @@
 # Native shell cannot-bypass gap (H4)
 
-## Fact
+## Fact (updated: mediated deployment)
 
-Grok Build’s **native runtime shell tool** does **not** route through `AssuredPlaneHost`.  
-Plane tools (`browser.*`, `desktop.*`, gated `shell.*`) do.
+Plane tools always route through `AssuredPlaneHost` when called via `cli.py` or **MCP `agent_control`**.
 
-Smoke still reports:
+Native Grok shell (`Bash` / `run_terminal_cmd`) is **outside** the host unless the deployment **denies** it and exposes the MCP plane.
 
-```json
-"native_runtime_shell_gated": false,
-"plane_tools_gated": true
+### Mediated ambient mode (this host)
+
+| Control | Status |
+|---------|--------|
+| MCP server `agent_control` → `mcp_server.py` | Installed in `~/.grok/config.toml` |
+| `[permission] deny Bash(*)` | Installed — restart Grok to load |
+| Headless `scripts/grok-mediated -p …` | Strips `run_terminal_cmd` |
+| File edit tools | Still native (not shell) |
+
+After Grok restart, `plane.status` → `claim_ceiling.native_runtime_shell_gated` becomes **true** when config is detected (`mediated_deployment` block).
+
+```bash
+python3 ~/agent-control/cli.py call plane.status
+# mediated_deployment.native_bash_deny_configured + agent_control_mcp_configured
 ```
 
-## Operator SOP (close the gap in practice)
+### Residual (still true)
 
-1. Prefer **gated host shell** for agent work:
-   ```bash
-   python3 ~/agent-control/cli.py call shell.run --args-json '{"name":"git_status"}'
-   python3 ~/agent-control/cli.py call shell.exec --args-json '{"argv":["git","status"],"cwd":"/Users/llm01/agent-control"}'
-   ```
-2. Treat raw Grok shell as **operator-only** high-trust, not agent ambient.
-3. Session preflight:
-   ```bash
-   python3 ~/agent-control/cli.py session
-   # claim_ceiling.native_runtime_shell_gated should stay false until product wires it
-   ```
-4. Under FREEZE, only freeze-allow tools run (`plane.status`, `browser.status`, …) — **native shell still bypasses FREEZE**.
+| Residual | Why |
+|----------|-----|
+| File edits (`search_replace`, write) | Native Grok tools — not AssuredPlaneHost |
+| Operator Terminal.app | Outside agent tool plane |
+| Subagents | May still need MCP discipline; deny rules should apply |
+| FREEZE vs OS | FREEZE gates plane tools; denied Bash should not run if permission engine honors deny |
 
-## What would make the claim true
+## Operator SOP
 
-| Requirement | Owner |
-|-------------|--------|
-| Disable or wrap native shell in Grok Build host | Product / runtime |
-| Route all file/test/git via `shell.*` only | Agent SOP + skills |
-| Optional: OS sandbox so unmediated shell is impossible | OS policy (heavy) |
+1. **Restart Grok** after config change.  
+2. Shell work via MCP `shell_exec` / `shell_run` or `cli.py call shell.*`.  
+3. Plane GUI via MCP `plane_call` / browser_* / desktop_* / cua_*.  
+4. Break-glass: comment out Bash deny in `~/.grok/config.toml`, restart.  
+5. Full detail: `docs/MEDIATED_AMBIENT.md`.
 
-## Closest true claim
+## Closest true claim (mediated mode)
 
-> Plane tools on this host are gated through mcp-assure AdaptiveGate. Native Grok shell is **outside** that gate unless the runtime is configured to remove it.
+> On this deployment, native Bash is permission-denied and shell/plane actions are intended through agent-control MCP → AssuredPlaneHost. File-edit tools remain native. Not OS-wide lockdown.
 
-See also: `docs/SHELL_GATING.md`, `smoke/cannot_bypass_planes.py`.
+See also: `docs/SHELL_GATING.md`, `docs/MEDIATED_AMBIENT.md`, `smoke/cannot_bypass_planes.py`.
