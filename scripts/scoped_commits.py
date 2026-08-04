@@ -55,13 +55,39 @@ JOBS: list[tuple[Path, list[str], str]] = [
         [
             "hit_table.py",
             "corpora/HOLDOUT_DESIGN.md",
+            "corpora/gen_labeled_v1.py",
+            "corpora/labeled_traces_v1.json",
             "ops_log/README.md",
             "ops_log/TEMPLATE.md",
             "ops_log/2026-W31.md",
         ],
-        "Add ops log and holdout scaffolding for detector calibration\n\n"
-        "Weekly ops_log template plus deterministic hit_table --split for a future "
-        "held-out study (not a published detection rate).",
+        "Expand synthetic corpus to N=100 and keep holdout tooling\n\n"
+        "Add labeled_traces_v1 (v0 + highblast/expanded shapes) plus generator; "
+        "ops_log and hit_table --split remain calibration-only, not a published rate.",
+    ),
+    (
+        HOME / "agent-control",
+        [
+            "docs/THIRD_MACHINE.md",
+            "docs/CLAIM_LADDER.md",
+            "docs/paper/STRONG_PROOF_BACKLOG.md",
+            "smoke/proof_suite.py",
+            "scripts/scoped_commits.py",
+            "host/shell_handlers.py",
+            "tests/test_shell_exec_gate.py",
+        ],
+        "Document third-machine re-run and keep mediated commit helper current\n\n"
+        "THIRD_MACHINE.md for claim ladder R5 evidence; proof_suite markers for "
+        "corpus gen and scoped commits.",
+    ),
+    (
+        HOME / "ops",
+        [
+            "papers/CLAIM_LADDER.md",
+            "papers/STRONG_PROOF_BACKLOG.md",
+        ],
+        "Point ops papers at claim ladder and Phase A backlog completion\n\n"
+        "Keep paper folder in sync with agent-control claim-ladder process.",
     ),
 ]
 

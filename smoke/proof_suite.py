@@ -68,6 +68,17 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if out.get("ok") else 1
         # else: continue into offline/live proof board
 
+    # Corpus v1 generator (agent-soc sibling)
+    gen_marker = HOME / "agent-soc" / "corpora" / "RUN_GEN_V1"
+    if gen_marker.is_file():
+        gen = HOME / "agent-soc" / "corpora" / "gen_labeled_v1.py"
+        out = _run([sys.executable, str(gen)], timeout=60)
+        print(out.get("stdout") or out.get("stderr") or json.dumps(out))
+        try:
+            gen_marker.unlink()
+        except OSError:
+            pass
+
     from host.plane_host import AssuredPlaneHost, RECEIPTS as DEFAULT_RECEIPTS
     from host import lifecycle
 

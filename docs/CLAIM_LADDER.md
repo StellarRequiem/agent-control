@@ -24,7 +24,7 @@ Never market a higher rung than evidence. Site copy stays **weaker** than this l
 | R2 | Session CUA budgeted | **Production multi-step CUA under leash** | Layout/D4 matrix; flake budget; budget-exhaust proof |
 | R3 | Abhorrent FREEZE + synthetic hit table | **Measured detector (holdout)** | N≥100; held-out 20%; P/R with method; ops FP log |
 | R4 | Agent-plane SOC | **Operator-grade agent-plane SOC** | Multi-day metrics; clear non-SIEM scope; optional export |
-| R5 | Works on this Mac | **Independent re-run** | Third machine script; signed releases; 15-min bring-up |
+| R5 | Works on this Mac | **Independent re-run** | `docs/THIRD_MACHINE.md` offline steps; signed releases; 15-min bring-up |
 | R6 | Grok-centric wire | **Portable authority plane** | Second runtime adapter; shared gateway fixtures |
 
 ### Permanently out of scope (do not climb)

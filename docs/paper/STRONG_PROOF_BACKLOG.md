@@ -1,7 +1,7 @@
 # Stronger proof backlog — mediated control plane
 
 **Living list.** Items that would make the paper, claims, and stack more rigorous.  
-**Updated:** 2026-08-03  
+**Updated:** 2026-08-04  
 **Owner:** operator + agent sprints  
 
 Priorities: **P0** blocks stronger public claims · **P1** paper/eval quality · **P2** product polish · **P3** research stretch.
@@ -95,9 +95,10 @@ Claim ceiling still: **native_runtime_shell_gated=false**, **enterprise_soc=fals
 9. ~~**Claim ladder**~~ **DONE** — `docs/CLAIM_LADDER.md`.  
 10. ~~**Receipt multi-writer + rotate**~~ **DONE** — mcp-assure flock/re-sync; `plane.receipts_*`.  
 11. ~~**agent-control CI offline**~~ **DONE** — `.github/workflows/ci.yml`.  
-12. **Expand corpus to 100+** (still no public % until study freeze).  
-13. **Shell/FS mediation depth** — reduce native file-edit dependency.  
-14. **Third-machine re-run instructions**.
+12. ~~**Expand corpus to 100**~~ **DONE** — `labeled_traces_v1.json` (50/50) + generator (still no public %).  
+13. ~~**Third-machine re-run instructions**~~ **DONE** — `docs/THIRD_MACHINE.md`.  
+14. **Shell/FS mediation depth** — gated git add/commit done; file-edit tools still native.  
+15. **Independent third-machine live proof** — someone else runs THIRD_MACHINE.md and pastes ops_log.
 
 ### Tier 2 — stronger paper / arXiv
 
