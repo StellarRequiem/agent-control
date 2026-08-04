@@ -20,32 +20,21 @@ JOBS: list[tuple[Path, list[str], str]] = [
     (
         HOME / "agent-control",
         [
-            "docs/GAP_BRIDGE.md",
-            "docs/CLAIM_LADDER.md",
             "scripts/scoped_commits.py",
         ],
-        "Document gap bridge plan for post-restart Grok Build quality\n\n"
-        "Map residual ceilings (file edits, tool inventory, FREEZE scope) to "
-        "sprints so claim promotions stay evidence-first.",
+        "Point scoped_commits at career publish hygiene jobs\n\n"
+        "Keep mediated commit helper aligned with local-only ops/career policy.",
     ),
     (
         HOME / "ops",
         [
             "career/README.md",
             "career/BACKGROUND_INTAKE.md",
-            "career/RESUME_product_security.md",
-            "career/RESUME_agent_runtime_security.md",
-            "career/RESUME_verification_systems.md",
-            "career/RESUME_one_page_print.html",
-            "career/INTERVIEW_GUIDEBOOK.md",
-            "career/XAI_RECON_BOARD.md",
-            "career/APPLICATIONS_xai_drafts.md",
-            "career/APPLICATION_LOG.md",
+            "career/PUBLISH_STATUS.md",
             "career/APPLY_CHECKLIST.md",
         ],
-        "Add private career packet for xAI applications\n\n"
-        "Intake, resume variants, interview guide, recon board, and application "
-        "drafts — honest tenure, no title inflation.",
+        "Keep career packet local-only with publish policy\n\n"
+        "Document what is public vs private; strip EEO demographics from intake git.",
     ),
 ]
 
