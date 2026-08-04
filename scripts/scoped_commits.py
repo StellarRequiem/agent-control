@@ -18,26 +18,13 @@ HOME = Path.home()
 # (repo, paths relative to repo, commit message)
 JOBS: list[tuple[Path, list[str], str]] = [
     (
-        HOME / "agent-soc",
-        [
-            "corpora/labeled_traces_v1.json",
-            "corpora/gen_labeled_v1.py",
-            "corpora/HOLDOUT_DESIGN.md",
-        ],
-        "Ship labeled_traces_v1 synthetic corpus (N=100)\n\n"
-        "Fifty abhorrent and fifty benign traces including highblast spray shapes; "
-        "calibration only — not a published detection rate.",
-    ),
-    (
         HOME / "agent-control",
         [
             "smoke/proof_suite.py",
             "scripts/scoped_commits.py",
-            "docs/THIRD_MACHINE.md",
-            "docs/paper/STRONG_PROOF_BACKLOG.md",
         ],
-        "Wire corpus v1 into offline proof board\n\n"
-        "Offline suite runs hit_table on labeled_traces_v1 when present.",
+        "Keep scoped_commits job list current\n\n"
+        "Mediated commit helper tracks remaining dirty paths after Phase A/B slices.",
     ),
 ]
 
