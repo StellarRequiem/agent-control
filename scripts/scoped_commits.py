@@ -20,20 +20,20 @@ JOBS: list[tuple[Path, list[str], str]] = [
     (
         HOME / "agent-control",
         [
-            "docs/GAP_BRIDGE.md",
+            "smoke/proof_suite.py",
             "scripts/scoped_commits.py",
         ],
-        "Point harden handoff at position freeze\n\n"
-        "GAP_BRIDGE links POSITION_FREEZE so Claude systems work does not reopen Phase A.",
+        "Wire blue-vaccine pytest into offline proof board\n\n"
+        "Shai-Hulud–class host defense sibling stays optional when present.",
     ),
     (
         HOME / "ops",
         [
+            "SHAI_HULUD_BLUE_SLICE.md",
             "POSITION_FREEZE_2026-08-04.md",
-            "career/README.md",
         ],
-        "Freeze mediated-control + career posture for Claude harden lane\n\n"
-        "Settled public stack and claim ceilings; private career stays local-only.",
+        "Note Shai-Hulud blue-vaccine Grok slice under position freeze\n\n"
+        "Control-plane freeze holds; supply-chain worm defense is the active lane.",
     ),
 ]
 

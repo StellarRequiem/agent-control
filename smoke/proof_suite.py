@@ -84,6 +84,22 @@ def main(argv: list[str] | None = None) -> int:
             if "--offline" not in argv or "--scoped-push-only" in argv:
                 return 0 if out.get("ok") else 1
 
+    # blue-vaccine one-shot git init (sibling)
+    bv_init = HOME / "blue-vaccine" / "RUN_GIT_INIT"
+    if bv_init.is_file():
+        out = _run(
+            [
+                sys.executable,
+                str(HOME / "blue-vaccine" / "scripts" / "git_init_commit.py"),
+            ],
+            timeout=60,
+        )
+        print(out.get("stdout") or out.get("stderr") or json.dumps(out))
+        try:
+            bv_init.unlink()
+        except OSError:
+            pass
+
     # Corpus v1 generator (agent-soc sibling)
     gen_marker = HOME / "agent-soc" / "corpora" / "RUN_GEN_V1"
     if gen_marker.is_file():
@@ -364,6 +380,21 @@ def main(argv: list[str] | None = None) -> int:
         # claim ladder doc present
         ladder = ROOT / "docs" / "CLAIM_LADDER.md"
         add("claim_ladder_doc", ladder.is_file(), str(ladder))
+
+        # optional sibling: blue-vaccine (Shai-Hulud–class host defense)
+        bv = HOME / "blue-vaccine"
+        if (bv / "tests").is_dir():
+            bvt = _run(
+                [py, "-m", "pytest", "-q", str(bv / "tests")],
+                timeout=90,
+            )
+            add(
+                "blue_vaccine_pytest",
+                bool(bvt.get("ok")),
+                (bvt.get("stdout") or bvt.get("stderr") or "")[-400:],
+            )
+        else:
+            add("blue_vaccine_pytest", True, "skipped: blue-vaccine not present")
 
         # agent-soc corpus v1 hit table (sibling)
         v1 = HOME / "agent-soc" / "corpora" / "labeled_traces_v1.json"
