@@ -25,3 +25,5 @@ jobs:
         run: python smoke/cannot_bypass_planes.py --offline
       - name: Gated shell.exec proof (interpreter-free, path-confined)
         run: pytest tests/ -q
+      - name: Offline proof board (gates only; no live freeze/bridges)
+        run: python smoke/proof_suite.py --offline

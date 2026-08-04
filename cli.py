@@ -152,7 +152,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "proof":
         from smoke.proof_suite import main as proof_main
 
-        return proof_main()
+        # pass through --offline if present on argv after subcommand
+        extra = [a for a in sys.argv[2:] if a.startswith("-")]
+        return proof_main(extra)
 
     if args.cmd == "lockdown":
         # Proxy to agent-soc — single operator surface

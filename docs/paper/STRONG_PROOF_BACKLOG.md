@@ -82,15 +82,16 @@ Claim ceiling still: **native_runtime_shell_gated=false**, **enterprise_soc=fals
 
 ## Growing “would make it stronger” list (actionable)
 
-### Tier 1 — next sprints (do these)
+### Tier 1 — next sprints
 
-1. **Unified `cli.py proof`** — offline+live board → JSON + exit code (this document’s automation).  
-2. **Freeze-cycle in smoke** — optional live step already manual; automate under flag.  
-3. **Fix abhorrent secret vs path collision** — `/etc/passwd` should not be SECRET_SHAPE.  
-4. **Refresh CLAIMS.md** across leashes to current versions + proof links.  
-5. **Ship papers site slice** (operator `/ship-site`) so public can read PDF.  
-6. **Labeled trace corpus v0** — 50 synthetic events (25 abhorrent / 25 benign) with expected rules; report hit table (not “accuracy %” until N larger).  
+1. ~~**Unified `cli.py proof`**~~ **DONE** — `cli.py proof` / `--offline`.  
+2. ~~**Freeze-cycle**~~ **DONE** — live in proof_suite; offline FREEZE file in CI.  
+3. ~~**Secret vs path collision**~~ **DONE**.  
+4. ~~**Refresh CLAIMS.md**~~ **DONE** (2026-08-03 versions).  
+5. **Ship papers site slice** (operator `/ship-site`) — portfolio draft ready, not live.  
+6. ~~**Labeled trace corpus v0**~~ **DONE** — 25/25 hits, 0 FP on synthetic corpus; `hit_table.py`.  
 7. **Weekly ops log template** — freezes, FP notes, arm hours.  
+8. Expand corpus to 100+ with held-out 20% (still no public % claim until N/study design).  
 
 ### Tier 2 — stronger paper / arXiv
 
