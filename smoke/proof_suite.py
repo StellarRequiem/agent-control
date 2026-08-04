@@ -68,6 +68,22 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if out.get("ok") else 1
         # else: continue into offline/live proof board
 
+    # Mediated push (no force) — operator must set marker deliberately
+    push_marker = ROOT / "receipts" / "RUN_SCOPED_PUSH"
+    if "--scoped-push" in argv or push_marker.is_file():
+        script = ROOT / "scripts" / "scoped_push.py"
+        out = _run([sys.executable, str(script)], timeout=600)
+        print(out.get("stdout") or out.get("stderr") or json.dumps(out))
+        if push_marker.is_file():
+            try:
+                push_marker.unlink()
+            except OSError:
+                pass
+        if "--scoped-push-only" in argv or push_marker or "--scoped-push" in argv:
+            # push-only when flag or marker; do not mix with full board unless offline also set
+            if "--offline" not in argv or "--scoped-push-only" in argv:
+                return 0 if out.get("ok") else 1
+
     # Corpus v1 generator (agent-soc sibling)
     gen_marker = HOME / "agent-soc" / "corpora" / "RUN_GEN_V1"
     if gen_marker.is_file():

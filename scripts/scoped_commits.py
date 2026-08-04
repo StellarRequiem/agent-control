@@ -22,9 +22,11 @@ JOBS: list[tuple[Path, list[str], str]] = [
         [
             "smoke/proof_suite.py",
             "scripts/scoped_commits.py",
+            "scripts/scoped_push.py",
         ],
-        "Keep scoped_commits job list current\n\n"
-        "Mediated commit helper tracks remaining dirty paths after Phase A/B slices.",
+        "Add mediated scoped_push helper for origin/main\n\n"
+        "Operator-gated marker path pushes public product repos without force; "
+        "no bare git push via ambient shell.",
     ),
 ]
 
