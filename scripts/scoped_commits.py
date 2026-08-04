@@ -23,17 +23,20 @@ JOBS: list[tuple[Path, list[str], str]] = [
             "smoke/proof_suite.py",
             "scripts/scoped_commits.py",
         ],
-        "Wire blue-vaccine pytest into offline proof board\n\n"
-        "Shai-Hulud–class host defense sibling stays optional when present.",
+        "Require RUN_BV_PUSH.paths before blue-vaccine push\n\n"
+        "Kitchen-sink git add -A scooped Claude canary WIP into a Grok commit. "
+        "proof_suite now refuses RUN_BV_PUSH without an explicit path list.",
     ),
     (
         HOME / "ops",
         [
-            "SHAI_HULUD_BLUE_SLICE.md",
+            "DEFENSIVE_APEX_PURSUIT.md",
+            "PUBLIC_AID_TODAY.md",
             "POSITION_FREEZE_2026-08-04.md",
+            "SHAI_HULUD_BLUE_SLICE.md",
         ],
-        "Note Shai-Hulud blue-vaccine Grok slice under position freeze\n\n"
-        "Control-plane freeze holds; supply-chain worm defense is the active lane.",
+        "Track Defensive Apex + public aid for active Shai-Hulud wave\n\n"
+        "Charter for Claude/Grok; help playbook for people hit by npm worms.",
     ),
 ]
 

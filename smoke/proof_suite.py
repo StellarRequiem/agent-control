@@ -237,24 +237,55 @@ def main(argv: list[str] | None = None) -> int:
             except OSError:
                 pass
 
+    # blue-vaccine SCOPED push only — requires RUN_BV_PUSH.paths (never git add -A).
+    # Incident 2026-08-04: kitchen-sink push scooped Claude canary WIP into Grok commit.
     bv_push = ROOT / "receipts" / "RUN_BV_PUSH"
-    if bv_push.is_file() or (HOME / "blue-vaccine" / "RUN_BV_PUSH").is_file():
-        try:
-            p = subprocess.run(
-                [
-                    sys.executable,
-                    str(HOME / "blue-vaccine" / "scripts" / "git_commit_push.py"),
-                ],
-                capture_output=True,
-                text=True,
-                timeout=180,
+    bv_push_home = HOME / "blue-vaccine" / "RUN_BV_PUSH"
+    bv_paths = HOME / "blue-vaccine" / "RUN_BV_PUSH.paths"
+    bv_msg = HOME / "blue-vaccine" / "RUN_BV_PUSH.msg"
+    if bv_push.is_file() or bv_push_home.is_file():
+        if not bv_paths.is_file():
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "code": "SCOPED_PATHS_REQUIRED",
+                        "detail": (
+                            "RUN_BV_PUSH present but RUN_BV_PUSH.paths missing — "
+                            "refusing kitchen-sink commit (multi-agent safety)."
+                        ),
+                        "hint": "Write one repo-relative path per line to blue-vaccine/RUN_BV_PUSH.paths",
+                    }
+                )
             )
-            print((p.stdout or "")[:30000])
-            if p.stderr:
-                print((p.stderr or "")[:5000], file=sys.stderr)
-        except Exception as e:
-            print(json.dumps({"ok": False, "bv_push_error": str(e)}))
-        for m in (bv_push, HOME / "blue-vaccine" / "RUN_BV_PUSH"):
+        else:
+            try:
+                p = subprocess.run(
+                    [
+                        sys.executable,
+                        str(HOME / "blue-vaccine" / "scripts" / "git_commit_push.py"),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=180,
+                    cwd=str(HOME / "blue-vaccine"),
+                )
+                print((p.stdout or "")[:30000])
+                if p.stderr:
+                    print((p.stderr or "")[:5000], file=sys.stderr)
+                if p.returncode != 0:
+                    print(
+                        json.dumps(
+                            {
+                                "ok": False,
+                                "bv_push_returncode": p.returncode,
+                                "note": "scoped push refused or failed — other agents' dirty files left untouched",
+                            }
+                        )
+                    )
+            except Exception as e:
+                print(json.dumps({"ok": False, "bv_push_error": str(e)}))
+        for m in (bv_push, bv_push_home, bv_paths, bv_msg):
             try:
                 if m.is_file():
                     m.unlink()
