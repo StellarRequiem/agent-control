@@ -355,9 +355,16 @@ def main(argv: list[str] | None = None) -> int:
         if v1.is_file() and ht_py.is_file():
             ht = _run(
                 [sys.executable, str(ht_py), "--corpus", str(v1), "--split", "all"],
-                timeout=60,
+                timeout=90,
             )
-            parsed = _parse_last_json(ht.get("stdout") or "") or {}
+            # full JSON can exceed _run stdout cap — prefer on-disk report
+            report_path = HOME / "agent-soc" / "corpora" / "hit_table_latest.json"
+            parsed: dict[str, Any] = {}
+            try:
+                if report_path.is_file():
+                    parsed = json.loads(report_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                parsed = _parse_last_json(ht.get("stdout") or "") or {}
             add(
                 "hit_table_v1",
                 bool(ht.get("ok")) and bool(parsed.get("ok")),
@@ -366,6 +373,8 @@ def main(argv: list[str] | None = None) -> int:
                     "misses": parsed.get("misses"),
                     "fp": parsed.get("false_positives"),
                     "n": parsed.get("n_traces"),
+                    "rc": ht.get("code"),
+                    "stderr": (ht.get("stderr") or "")[-200:],
                 },
             )
         else:
