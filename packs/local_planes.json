@@ -2,7 +2,7 @@
   "meta": {
     "id": "local_planes",
     "description": "Planes + gated shell + CUA session tools. Deny-by-default. Not ambient OS control.",
-    "version": 10
+    "version": 11
   },
   "tools": {
     "plane.status": {
@@ -617,6 +617,25 @@
         "cwd"
       ],
       "max_arg_bytes": 8192,
+      "forbidden_args": [
+        "token",
+        "password",
+        "api_key"
+      ]
+    },
+    "shell.write_file": {
+      "description": "Write content to a file under an allowed root (mediated edit path). Path-confined, secret-name refused, size-capped; blocked under FREEZE.",
+      "max_blast": 3,
+      "required_args": [
+        "path",
+        "content"
+      ],
+      "allowed_args": [
+        "path",
+        "content",
+        "mode"
+      ],
+      "max_arg_bytes": 1048576,
       "forbidden_args": [
         "token",
         "password",

@@ -84,6 +84,7 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
 
 MAX_READ_BYTES = 64_000
 MAX_LIST = 200
+MAX_WRITE_BYTES = 1_000_000  # gated writes are for source/config, not blobs
 
 # --- gated shell.exec: validated argv, never a shell string -----------------
 # The whole point is to give Grok a *host-gated* path for the file/test/git work
@@ -250,6 +251,46 @@ class ShellHandlers:
                 "truncated": resolved.stat().st_size > MAX_READ_BYTES,
                 "text": text,
             },
+        }
+
+    def write_file(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Write content to a file UNDER an allowed root only.
+
+        The mediated alternative to native edit tools (G1): path-confined (no
+        traversal, no absolute-outside-root), secret-filename-refused, size-capped,
+        and — because `shell.write_file` is deliberately NOT in freeze_allow — blocked
+        under FREEZE. Adding this closes the "file edits bypass the gate" hole; it
+        does not weaken deny-by-default (writes stay inside the same rooted policy as
+        reads).
+        """
+        resolved = self._resolve_under_root(str(args.get("path") or ""))
+        if isinstance(resolved, dict):
+            return resolved
+        content = args.get("content")
+        if not isinstance(content, str):
+            return {"ok": False, "code": "CONTENT_REQUIRED", "detail": "content must be a string"}
+        if len(content.encode("utf-8")) > MAX_WRITE_BYTES:
+            return {"ok": False, "code": "CONTENT_TOO_LARGE", "detail": f"max {MAX_WRITE_BYTES} bytes"}
+        # never write onto a secret-shaped filename (mirror the read-side fence)
+        name = resolved.name.lower()
+        if any(x in name for x in (".pem", ".key", "id_rsa", "credentials", ".env", "secret")):
+            return {"ok": False, "code": "SECRET_FILENAME", "detail": "path looks secret-shaped — refused by shell gate"}
+        if resolved.exists() and resolved.is_dir():
+            return {"ok": False, "code": "IS_DIR", "detail": str(resolved)}
+        mode = str(args.get("mode") or "overwrite")
+        if mode not in ("overwrite", "create"):
+            return {"ok": False, "code": "BAD_MODE", "detail": "mode must be overwrite|create"}
+        if mode == "create" and resolved.exists():
+            return {"ok": False, "code": "EXISTS", "detail": "create mode: file exists"}
+        try:
+            resolved.parent.mkdir(parents=True, exist_ok=True)
+            resolved.write_text(content, encoding="utf-8")
+        except OSError as e:
+            return {"ok": False, "code": "WRITE_FAIL", "detail": str(e)}
+        return {
+            "ok": True,
+            "code": "WROTE",
+            "data": {"path": str(resolved), "bytes": len(content.encode("utf-8")), "mode": mode},
         }
 
     def stat(self, args: dict[str, Any]) -> dict[str, Any]:

@@ -159,6 +159,7 @@ class AssuredPlaneHost:
             "shell.roots": self.shell.roots_list,
             "shell.list_dir": self.shell.list_dir,
             "shell.read_file": self.shell.read_file,
+            "shell.write_file": self.shell.write_file,
             "shell.stat": self.shell.stat,
             "shell.run": self.shell.run,
             "shell.exec": self.shell.exec,
