@@ -15,6 +15,7 @@
 | Dual human gates on x_post / quit / Return | handlers + smoke |
 | Lockdown proxy to agent-soc FREEZE | `cli.py lockdown` · docs/ABHORRENT_LOCKDOWN.md |
 | Working paper artifacts | `docs/paper/` |
+| Mediated ambient: Bash deny + MCP plane host (when configured) | `docs/MEDIATED_AMBIENT.md` · `mcp_server.py` · `plane.status` mediated_deployment |
 
 ## Not allowed
 
