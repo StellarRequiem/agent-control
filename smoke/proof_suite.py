@@ -349,6 +349,28 @@ def main(argv: list[str] | None = None) -> int:
         ladder = ROOT / "docs" / "CLAIM_LADDER.md"
         add("claim_ladder_doc", ladder.is_file(), str(ladder))
 
+        # agent-soc corpus v1 hit table (sibling)
+        v1 = HOME / "agent-soc" / "corpora" / "labeled_traces_v1.json"
+        ht_py = HOME / "agent-soc" / "hit_table.py"
+        if v1.is_file() and ht_py.is_file():
+            ht = _run(
+                [sys.executable, str(ht_py), "--corpus", str(v1), "--split", "all"],
+                timeout=60,
+            )
+            parsed = _parse_last_json(ht.get("stdout") or "") or {}
+            add(
+                "hit_table_v1",
+                bool(ht.get("ok")) and bool(parsed.get("ok")),
+                {
+                    "hits": parsed.get("hits"),
+                    "misses": parsed.get("misses"),
+                    "fp": parsed.get("false_positives"),
+                    "n": parsed.get("n_traces"),
+                },
+            )
+        else:
+            add("hit_table_v1", True, "skipped: corpus v1 not present")
+
     passed = sum(1 for b in board if b["ok"])
     total = len(board)
     report = {
