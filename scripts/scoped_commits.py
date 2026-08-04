@@ -20,13 +20,32 @@ JOBS: list[tuple[Path, list[str], str]] = [
     (
         HOME / "agent-control",
         [
-            "smoke/proof_suite.py",
+            "docs/GAP_BRIDGE.md",
+            "docs/CLAIM_LADDER.md",
             "scripts/scoped_commits.py",
-            "scripts/scoped_push.py",
         ],
-        "Add mediated scoped_push helper for origin/main\n\n"
-        "Operator-gated marker path pushes public product repos without force; "
-        "no bare git push via ambient shell.",
+        "Document gap bridge plan for post-restart Grok Build quality\n\n"
+        "Map residual ceilings (file edits, tool inventory, FREEZE scope) to "
+        "sprints so claim promotions stay evidence-first.",
+    ),
+    (
+        HOME / "ops",
+        [
+            "career/README.md",
+            "career/BACKGROUND_INTAKE.md",
+            "career/RESUME_product_security.md",
+            "career/RESUME_agent_runtime_security.md",
+            "career/RESUME_verification_systems.md",
+            "career/RESUME_one_page_print.html",
+            "career/INTERVIEW_GUIDEBOOK.md",
+            "career/XAI_RECON_BOARD.md",
+            "career/APPLICATIONS_xai_drafts.md",
+            "career/APPLICATION_LOG.md",
+            "career/APPLY_CHECKLIST.md",
+        ],
+        "Add private career packet for xAI applications\n\n"
+        "Intake, resume variants, interview guide, recon board, and application "
+        "drafts — honest tenure, no title inflation.",
     ),
 ]
 

@@ -52,9 +52,11 @@ Never market a higher rung than evidence. Site copy stays **weaker** than this l
 
 ## Phase B (next) — promote 2–3 ceilings
 
-1. **Shell/FS depth** — enough gated `shell.*` that real agent work never needs native edits.  
-2. **Corpus 100+ + holdout** — still no public % until study design green.  
-3. **Third-machine re-run doc** — portable proof.  
+Canonical gap-bridge plan: **`docs/GAP_BRIDGE.md`** (G1–G9).
+
+1. **G1/G4 file mutation plane** — native Write deny + `shell.write_file` / apply_patch under roots.  
+2. **G2/G3/G5** — tool inventory, host version in plane.status, honest FREEZE scope.  
+3. ~~Corpus 100+~~ / ~~third-machine doc~~ — **done** (v1 + THIRD_MACHINE.md); holdout study still optional.  
 4. **Weekly ops log discipline** — freeze FP / MTTR / arm-hours.
 
 ## Phase C (stretch)
