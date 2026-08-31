@@ -39,7 +39,7 @@ rotates; do not use that on Grok unless you intend to replace it.
 HTTP MCP (loopback):
 
 ```text
-URL:    http://127.0.0.1:8768/mcp
+URL:    http://127.0.0.1:8762/mcp
 Header: Authorization: Bearer <token from mint>
 ```
 
@@ -55,7 +55,7 @@ bearer).
 
 ```bash
 python3 ~/agent-control/mcp_http.py serve
-# 127.0.0.1:8768 only
+# 127.0.0.1:8762 only (override with AGENT_CONTROL_MCP_PORT)
 ```
 
 `plane.status` → `actors` lists the roster (`grok` / `claude` / `codex`) and

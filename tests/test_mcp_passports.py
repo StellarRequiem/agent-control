@@ -31,6 +31,12 @@ CODEX_TOKEN = "fixture-codex-passport-token-cccccccc"
 WRONG_TOKEN = "fixture-wrong-passport-token-zzzzzzzz"
 
 
+def test_http_default_port_matches_live_tunnel():
+    from mcp_http import DEFAULT_PORT
+
+    assert DEFAULT_PORT == 8762
+
+
 def _write_fixtures(tmp_path: Path) -> Path:
     (tmp_path / "mcp-http.token").write_text(GROK_TOKEN + "\n", encoding="utf-8")
     (tmp_path / "mcp-http.claude.token").write_text(CLAUDE_TOKEN + "\n", encoding="utf-8")

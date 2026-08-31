@@ -41,7 +41,7 @@ from host.passports import (  # noqa: E402
 from host.plane_host import AssuredPlaneHost, load_local_pack  # noqa: E402
 
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8768
+DEFAULT_PORT = 8762
 
 
 def _token(receipts_dir: Path | str | None = None) -> str:
@@ -391,7 +391,7 @@ def main(argv: list[str] | None = None) -> int:
     serve_p.add_argument(
         "--port",
         type=int,
-        default=int(os.environ.get("AGENT_CONTROL_MCP_HTTP_PORT", str(DEFAULT_PORT))),
+        default=int(os.environ.get("AGENT_CONTROL_MCP_PORT", str(DEFAULT_PORT))),
     )
     serve_p.add_argument("--receipts-dir", default="")
 
