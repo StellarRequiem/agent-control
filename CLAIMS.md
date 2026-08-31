@@ -16,6 +16,7 @@
 | Lockdown proxy to agent-soc FREEZE | `cli.py lockdown` · docs/ABHORRENT_LOCKDOWN.md |
 | Working paper artifacts | `docs/paper/` |
 | Mediated ambient: Bash deny + MCP plane host (when configured) | `docs/MEDIATED_AMBIENT.md` · `mcp_server.py` · `plane.status` mediated_deployment |
+| HTTP MCP bearer maps to actor (grok/claude/codex) | `host/passports.py`, `mcp_http.py`, `tests/test_mcp_passports.py` · docs/MCP_PASSPORTS.md |
 | FREEZE recovery via `plane.unfreeze` without native bash | pack v10 · freeze_allow · MCP `plane_unfreeze` |
 | Receipt diagnose/rotate when chain broken | `plane.receipts_status` / `plane.receipts_rotate` · chain_repair_allow |
 | Claim ladder (promotion process) | `docs/CLAIM_LADDER.md` |
@@ -31,6 +32,7 @@
 | Auto-post to X |
 | Browser auto-arm without extension popup |
 | Detection-rate % without holdout study |
+| Passports stop worms / replace a SOC |
 
 ## Wording
 

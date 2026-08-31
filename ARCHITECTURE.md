@@ -3,8 +3,8 @@
 **Role:** local host that makes control-plane claims true in *code*, not docs.
 
 ```
-Grok / CLI
-    │
+Grok / CLI / Claude / Codex
+    │  HTTP Bearer passport (mcp_http) or stdio (mcp_server, actor=grok)
     ▼
 AssuredPlaneHost          (this repo)
     │  AdaptiveGate + AssuredToolDispatcher (mcp-assure)
@@ -54,6 +54,8 @@ AssuredPlaneHost          (this repo)
 | Path | Purpose |
 |------|---------|
 | `host/plane_host.py` | AssuredPlaneHost |
+| `host/passports.py` | Bearer token → actor (HTTP MCP) |
+| `mcp_http.py` | Loopback MCP HTTP + passport auth |
 | `host/router.py` | Task → plane |
 | `host/publish_pipeline.py` | X draft/post state machine |
 | `host/browser_handlers.py` | Leash HTTP |

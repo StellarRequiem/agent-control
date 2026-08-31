@@ -26,11 +26,12 @@ if str(_MCP) not in sys.path:
 
 from mcp_assure import AssureEngine  # noqa: E402
 from mcp_assure.integrations import AssuredToolDispatcher  # noqa: E402
-from mcp_assure.policy import ToolPolicyRegistry  # noqa: E402
+from mcp_assure.policy import ToolCall, ToolPolicyRegistry  # noqa: E402
 
 from host.browser_handlers import BrowserHandlers  # noqa: E402
 from host.desktop_handlers import DesktopHandlers  # noqa: E402
 from host.http_util import http_json  # noqa: E402
+from host.passports import roster_public  # noqa: E402
 from host.router import route_task  # noqa: E402
 from host.shell_handlers import ShellHandlers  # noqa: E402
 from host.cua_loop import CuaController  # noqa: E402
@@ -59,12 +60,16 @@ class AssuredPlaneHost:
         adaptive: bool = True,
         browser_base: str = BROWSER,
         desktop_base: str = DESKTOP,
+        passports_dir: Path | str | None = None,
+        default_actor: str = "grok",
     ) -> None:
         receipts_path = Path(receipts_path or RECEIPTS)
         receipts_path.parent.mkdir(parents=True, exist_ok=True)
         freeze_path = Path(freeze_path or FREEZE)
 
         self.receipts_path = receipts_path
+        self.passports_dir = Path(passports_dir) if passports_dir else ROOT / "receipts"
+        self.default_actor = default_actor or "grok"
         freeze_allow = frozenset(
             {
                 "plane.status",
@@ -174,7 +179,7 @@ class AssuredPlaneHost:
             engine,
             handlers,
             source="agent-control",
-            actor="grok",
+            actor=self.default_actor,
             adaptive=adaptive,
             auto_freeze=True,
         )
@@ -206,11 +211,39 @@ class AssuredPlaneHost:
         assert self.cua is not None
         return self.cua.step(a or {})
 
-    def call(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._dispatcher.call_tool({"name": name, "arguments": arguments or {}})
+    def _tool_call(
+        self,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+        *,
+        actor: str | None = None,
+    ) -> ToolCall:
+        # Actor is host/passport-assigned only. Callers must not pass model JSON actor.
+        resolved = actor if actor is not None else self.default_actor
+        return ToolCall(
+            tool=name,
+            arguments=arguments or {},
+            actor=resolved,
+            source=self._dispatcher.source,
+        )
 
-    def authorize_only(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._dispatcher.authorize_only({"name": name, "arguments": arguments or {}})
+    def call(
+        self,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+        *,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        return self._dispatcher.call_tool(self._tool_call(name, arguments, actor=actor))
+
+    def authorize_only(
+        self,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+        *,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        return self._dispatcher.authorize_only(self._tool_call(name, arguments, actor=actor))
 
     def _plane_unfreeze(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         """Clear FREEZE files (allowed during freeze for recovery without native shell)."""
@@ -366,6 +399,7 @@ class AssuredPlaneHost:
                 "cli": str(Path.home() / "agent-soc" / "cli.py"),
                 "watch": "python3 ~/agent-soc/cli.py watch --interval 30",
             },
+            "actors": roster_public(self.passports_dir),
             "claim_ladder": str(ROOT / "docs" / "CLAIM_LADDER.md"),
             "receipts_path": str(self.receipts_path),
         }
