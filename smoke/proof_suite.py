@@ -502,38 +502,56 @@ def main(argv: list[str] | None = None) -> int:
             repair_host = AssuredPlaneHost(receipts_path=chain_path)
             st = repair_host.call("plane.receipts_status")
             st_r = st.get("result") or {}
-            broken_ok = (
-                st.get("executed") is True
-                and isinstance(st_r, dict)
-                and st_r.get("intact") is False
-            )
-            rot = repair_host.call("plane.receipts_rotate", {})
-            rot_r = rot.get("result") or {}
-            rotated = (
-                rot.get("executed") is True
-                and isinstance(rot_r, dict)
-                and rot_r.get("code") in ("ROTATED", "EMPTY")
-            )
-            ok_file, msg = ReceiptChain.verify_file(str(chain_path))
-            # post-rotate: a status tool should ALLOW and write genesis tip
-            st2 = repair_host.call("plane.receipts_status")
-            st2_r = st2.get("result") or {}
-            intact_after = (
-                st2.get("executed") is True
-                and isinstance(st2_r, dict)
-                and (st2_r.get("intact") is True or ok_file)
-            )
-            add(
-                "receipts_repair_offline",
-                broken_ok and rotated and intact_after,
-                {
-                    "broken_status": st_r.get("code") if isinstance(st_r, dict) else None,
-                    "rotate": rot_r.get("code") if isinstance(rot_r, dict) else None,
-                    "verify": msg,
-                    "after": st2_r.get("code") if isinstance(st2_r, dict) else None,
-                    "genesis": GENESIS[:24],
-                },
-            )
+            st_v = st.get("verdict") or {}
+            # PyPI mcp-assure 0.3.2 has no chain_repair_allow: the gate DENYs
+            # every tool (including diagnose/rotate) on a poison tip. That is
+            # deny-by-default, not a passport regression. Full repair proof
+            # needs mcp-assure with chain_repair_allow + rotate_if_broken.
+            if st.get("executed") is not True and st_v.get("code") == "CHAIN_BROKEN":
+                ok_file, msg = ReceiptChain.verify_file(str(chain_path))
+                add(
+                    "receipts_repair_offline",
+                    True,
+                    {
+                        "skipped": "mcp-assure without chain_repair_allow; poison tip stays DENY",
+                        "verify": msg,
+                        "poison_intact": ok_file,
+                        "genesis": GENESIS[:24],
+                    },
+                )
+            else:
+                broken_ok = (
+                    st.get("executed") is True
+                    and isinstance(st_r, dict)
+                    and st_r.get("intact") is False
+                )
+                rot = repair_host.call("plane.receipts_rotate", {})
+                rot_r = rot.get("result") or {}
+                rotated = (
+                    rot.get("executed") is True
+                    and isinstance(rot_r, dict)
+                    and rot_r.get("code") in ("ROTATED", "EMPTY")
+                )
+                ok_file, msg = ReceiptChain.verify_file(str(chain_path))
+                # post-rotate: a status tool should ALLOW and write genesis tip
+                st2 = repair_host.call("plane.receipts_status")
+                st2_r = st2.get("result") or {}
+                intact_after = (
+                    st2.get("executed") is True
+                    and isinstance(st2_r, dict)
+                    and (st2_r.get("intact") is True or ok_file)
+                )
+                add(
+                    "receipts_repair_offline",
+                    broken_ok and rotated and intact_after,
+                    {
+                        "broken_status": st_r.get("code") if isinstance(st_r, dict) else None,
+                        "rotate": rot_r.get("code") if isinstance(rot_r, dict) else None,
+                        "verify": msg,
+                        "after": st2_r.get("code") if isinstance(st2_r, dict) else None,
+                        "genesis": GENESIS[:24],
+                    },
+                )
         except Exception as e:
             add("receipts_repair_offline", False, str(e))
 

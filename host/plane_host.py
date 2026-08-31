@@ -296,7 +296,15 @@ class AssuredPlaneHost:
         from mcp_assure.receipts import ReceiptChain
 
         force = bool((args or {}).get("force"))
-        out = ReceiptChain.rotate_if_broken(str(self.receipts_path), force=force)
+        rotate = getattr(ReceiptChain, "rotate_if_broken", None)
+        if rotate is None:
+            return {
+                "ok": False,
+                "code": "UNSUPPORTED",
+                "detail": "this mcp-assure install has no ReceiptChain.rotate_if_broken",
+                "claim": "upgrade mcp-assure for chain_repair_allow + rotate; host does not invent a rotate",
+            }
+        out = rotate(str(self.receipts_path), force=force)
         out["claim"] = (
             "rotates host receipt log only; does not erase leash history or SOC incidents"
         )
