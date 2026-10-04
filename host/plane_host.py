@@ -27,13 +27,18 @@ if str(_MCP) not in sys.path:
 
 from mcp_assure import AssureEngine  # noqa: E402
 from mcp_assure.integrations import AssuredToolDispatcher  # noqa: E402
-from mcp_assure.policy import ToolPolicyRegistry  # noqa: E402
+from mcp_assure.policy import ToolCall, ToolPolicyRegistry  # noqa: E402
 
 from host.browser_handlers import BrowserHandlers  # noqa: E402
 from host.desktop_handlers import DesktopHandlers  # noqa: E402
 from host.http_util import http_json  # noqa: E402
 from host.router import route_task  # noqa: E402
 from host.shell_handlers import ShellHandlers  # noqa: E402
+from host.stdio_actor import (  # noqa: E402
+    load_stdio_roster,
+    strip_spoofable_actor_fields,
+    validate_actor,
+)
 from host.cua_loop import CuaController  # noqa: E402
 from host.profile_mode import profile_summary  # noqa: E402
 
@@ -227,12 +232,23 @@ class AssuredPlaneHost:
         adaptive: bool = True,
         browser_base: str = BROWSER,
         desktop_base: str = DESKTOP,
+        actor: str | None = None,
+        roster_dir: Path | str | None = None,
     ) -> None:
         receipts_path = Path(receipts_path or RECEIPTS)
         receipts_path.parent.mkdir(parents=True, exist_ok=True)
         freeze_path = Path(freeze_path or FREEZE)
 
         self.receipts_path = receipts_path
+        # Process actor. None keeps the historical default (grok).
+        # AGENT_CONTROL_ACTOR is read only by resolve_stdio_actor (the stdio CLI).
+        # An explicit name that is off the roster raises UnknownActorError.
+        self.roster_dir = Path(roster_dir) if roster_dir else (ROOT / "receipts")
+        self.roster = load_stdio_roster(self.roster_dir)
+        self.actor = validate_actor(
+            "grok" if actor is None else actor,
+            receipts_dir=self.roster_dir,
+        )
         freeze_allow = FREEZE_ALLOW
         chain_repair = frozenset(
             {
@@ -284,8 +300,11 @@ class AssuredPlaneHost:
             "browser.tab_create": self.browser.tab_create,
             "browser.tab_close": self.browser.tab_close,
             "browser.tab_activate": self.browser.tab_activate,
-            "browser.page_info": self.browser.page_info,
-            "browser.workspace": self.browser.workspace,
+            # page_info / workspace are named here and still have no method on
+            # BrowserHandlers. That AttributeError crashed host init on main
+            # (CI). Bind them only when the method exists.
+            "browser.page_info": getattr(self.browser, "page_info", None),
+            "browser.workspace": getattr(self.browser, "workspace", None),
             "browser.snapshot": self.browser.snapshot,
             "browser.screenshot": self.browser.screenshot,
             "browser.click": self.browser.click,
@@ -325,7 +344,7 @@ class AssuredPlaneHost:
             "shell.list_dir": self.shell.list_dir,
             "shell.read_file": self.shell.read_file,
             "shell.write_file": self.shell.write_file,
-            "shell.apply_patch": self.shell.apply_patch,
+            "shell.apply_patch": getattr(self.shell, "apply_patch", None),
             "shell.stat": self.shell.stat,
             "shell.run": self.shell.run,
             "shell.exec": self.shell.exec,
@@ -335,12 +354,13 @@ class AssuredPlaneHost:
             "cua.observe": self._cua_observe,
             "cua.step": self._cua_step,
         }
+        handlers = {k: v for k, v in handlers.items() if v is not None}
 
         self._dispatcher = AssuredToolDispatcher(
             engine,
             handlers,
             source="agent-control",
-            actor="grok",
+            actor=self.actor,
             adaptive=adaptive,
             auto_freeze=True,
         )
@@ -424,8 +444,11 @@ class AssuredPlaneHost:
             "browser.tab_create": self.browser.tab_create,
             "browser.tab_close": self.browser.tab_close,
             "browser.tab_activate": self.browser.tab_activate,
-            "browser.page_info": self.browser.page_info,
-            "browser.workspace": self.browser.workspace,
+            # page_info / workspace are named here and still have no method on
+            # BrowserHandlers. That AttributeError crashed host init on main
+            # (CI). Bind them only when the method exists.
+            "browser.page_info": getattr(self.browser, "page_info", None),
+            "browser.workspace": getattr(self.browser, "workspace", None),
             "browser.snapshot": self.browser.snapshot,
             "browser.screenshot": self.browser.screenshot,
             "browser.click": self.browser.click,
@@ -465,12 +488,14 @@ class AssuredPlaneHost:
             "shell.list_dir": self.shell.list_dir,
             "shell.read_file": self.shell.read_file,
             "shell.write_file": self.shell.write_file,
-            "shell.apply_patch": self.shell.apply_patch,
+            "shell.apply_patch": getattr(self.shell, "apply_patch", None),
             "shell.stat": self.shell.stat,
             "shell.run": self.shell.run,
             "shell.exec": self.shell.exec,
         }
         for k, fn in rebinds.items():
+            if fn is None:
+                continue
             if k in d:
                 d[k] = fn
         # Always ensure reload tool points at this method
@@ -484,13 +509,30 @@ class AssuredPlaneHost:
             "note": "MCP tool *schemas* still need Grok session restart for new first-class tools",
         }
 
+    def _bound_call(self, name: str, arguments: dict[str, Any] | None) -> ToolCall:
+        """ToolCall bound to the process actor.
+
+        There is no per-call actor argument. JSON `actor` / `agent` / `agent_id`
+        keys are removed so they cannot enter the pack or the receipt.
+        """
+        if arguments is None:
+            arguments = {}
+        if not isinstance(arguments, dict):
+            raise TypeError("arguments must be an object")
+        return ToolCall(
+            tool=str(name),
+            arguments=strip_spoofable_actor_fields(arguments),
+            actor=self.actor,
+            source=self._dispatcher.source,
+        )
+
     def call(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         self._maybe_reload_pack()
-        return self._dispatcher.call_tool({"name": name, "arguments": arguments or {}})
+        return self._dispatcher.call_tool(self._bound_call(name, arguments))
 
     def authorize_only(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         self._maybe_reload_pack()
-        return self._dispatcher.authorize_only({"name": name, "arguments": arguments or {}})
+        return self._dispatcher.authorize_only(self._bound_call(name, arguments))
 
     def _plane_unfreeze(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         """Clear FREEZE files (allowed during freeze for recovery without native shell)."""
@@ -600,6 +642,11 @@ class AssuredPlaneHost:
                 "claude_actor_observe": True,
             },
             "actors": {
+                # Process actor for this host. Stdio sets it once at startup.
+                "current": self.actor,
+                "binding": "stdio_process",
+                "roster": list(self.roster),
+                "spoofable_ignored": ["actor", "agent", "agent_id"],
                 "grok": "agent-control MCP (this host)",
                 "claude": "claude-control PreToolUse + optional same MCP",
                 "gate": "mcp-assure",
