@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import sys
 import tempfile
 import threading
@@ -64,6 +65,7 @@ EXIT_CODES = {
     "max_steps": 6,
     "timeout": 7,
     "max_errors": 8,
+    "preflight": 1,
 }
 
 
@@ -92,6 +94,7 @@ class Config:
     rules: tuple[Path, ...] = ()
     transcript_dir: Path = DEFAULT_TRANSCRIPT_DIR
     dry_run: bool = False
+    preflight: bool = True
     server: Path = DEFAULT_SERVER
     python: str = ""
     task: str = ""
@@ -249,6 +252,43 @@ def parse_tool_calls(message: dict[str, Any]) -> list[dict[str, Any]]:
         elif not isinstance(args, dict):
             args = None
         calls.append({"name": name, "arguments": args})
+    return calls
+
+
+_TOOL_CALL_BLOCK = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
+_FUNCTION_TAG = re.compile(r"<function=([^\s>]+)>")
+_PARAMETER_TAG = re.compile(r"<parameter=([^\s>]+)>\s*(.*?)\s*</parameter>", re.DOTALL)
+
+
+def parse_content_tool_calls(content: str) -> list[dict[str, Any]]:
+    """Pull calls out of ``<tool_call>`` blocks when ``message.tool_calls`` is empty.
+
+    qwen3 sometimes writes the call into ``content`` instead of the native
+    channel. Only a ``<tool_call>`` block counts. Prose that names a tool
+    does not. Parsed calls still have to be exact exposed names; this
+    function does not forward anything.
+    """
+    if not content or "<tool_call>" not in content:
+        return []
+    calls: list[dict[str, Any]] = []
+    for block in _TOOL_CALL_BLOCK.findall(content):
+        parsed = _json_container(block.strip())
+        if isinstance(parsed, dict) and parsed.get("name"):
+            args = parsed.get("arguments")
+            if isinstance(args, str):
+                inner = _json_container(args)
+                args = inner if isinstance(inner, dict) else None
+            elif args is None:
+                args = {}
+            elif not isinstance(args, dict):
+                args = None
+            calls.append({"name": str(parsed["name"]), "arguments": args})
+            continue
+        found = _FUNCTION_TAG.search(block)
+        if not found:
+            continue
+        arguments = {key: value for key, value in _PARAMETER_TAG.findall(block)}
+        calls.append({"name": found.group(1), "arguments": arguments})
     return calls
 
 
@@ -648,12 +688,16 @@ class AgentLoop:
                 print(prompt, file=self.out)
                 transcript.write({"kind": "stop", "reason": "dry_run"})
                 return self._finish(transcript, "dry_run")
+            exposed_names = set(names)
+            if self.cfg.preflight:
+                stopped = self._preflight(transcript, exposed_names)
+                if stopped is not None:
+                    return stopped
             messages: list[dict[str, Any]] = [
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": task},
             ]
             tools = [ollama_tool_schema(tool) for tool in exposed]
-            exposed_names = set(names)
             spray = 0
             consecutive_errors = 0
             for step in range(1, self.cfg.max_steps + 1):
@@ -674,12 +718,17 @@ class AgentLoop:
                 message = response.get("message") or {}
                 messages.append(_assistant_message(message))
                 calls = parse_tool_calls(message)
+                call_source = "tool_calls"
+                if not calls:
+                    calls = parse_content_tool_calls(str(message.get("content") or ""))
+                    call_source = "content"
                 transcript.write(
                     {
                         "kind": "model",
                         "step": step,
                         "content": message.get("content") or "",
                         "tool_calls": calls,
+                        "tool_call_source": call_source if calls else "",
                     }
                 )
                 if not calls:
@@ -738,6 +787,68 @@ class AgentLoop:
             return self._stop(transcript, "max_steps", step=self.cfg.max_steps)
         finally:
             transcript.close()
+
+    def _preflight(self, transcript: Transcript, exposed_names: set[str]) -> RunResult | None:
+        """Call ``plane_status`` before the model speaks.
+
+        A status body that reports a freeze is information. A gate FREEZE,
+        a denial, or a failed status stops the run and the model is not called.
+        """
+        if self.timed_out():
+            return self._stop(transcript, "timeout", step=0, preflight=True)
+        if "plane_status" not in exposed_names:
+            print("preflight skipped: plane_status is not exposed", file=self.out)
+            transcript.write({"kind": "preflight", "skipped": True})
+            return None
+        try:
+            payload = self.plane.call_tool(
+                "plane_status", {}, timeout=max(self.remaining(), 0.1)
+            )
+        except Exception as exc:
+            payload = {"ok": False, "code": "MCP_ERROR", "detail": str(exc)}
+        if not isinstance(payload, dict):
+            payload = {"raw": payload}
+        kind = classify_plane_payload(payload)
+        result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+        actors = result.get("actors") if isinstance(result.get("actors"), dict) else {}
+        freeze = result.get("freeze") if isinstance(result.get("freeze"), dict) else {}
+        actor = actors.get("current")
+        engaged = bool(freeze.get("engaged"))
+        print(
+            f"preflight plane_status → {kind} actor={actor or '?'} "
+            f"freeze={'engaged' if engaged else 'clear'}",
+            file=self.out,
+        )
+        transcript.write(
+            {
+                "kind": "preflight",
+                "classification": kind,
+                "actor": actor,
+                "freeze_engaged": engaged,
+                "result": _jsonable(payload),
+            }
+        )
+        if kind in {"freeze", "deny", "confirm"}:
+            print(f"preflight plane {kind} — stopping, not starting the model.", file=self.out)
+            return self._stop(
+                transcript,
+                kind,
+                step=0,
+                tool="plane_status",
+                preflight=True,
+                result=payload,
+            )
+        if kind == "error":
+            print("preflight plane_status failed — stopping, not starting the model.", file=self.out)
+            return self._stop(
+                transcript,
+                "preflight",
+                step=0,
+                tool="plane_status",
+                preflight=True,
+                result=payload,
+            )
+        return None
 
     def _dispatch(
         self,
@@ -938,6 +1049,11 @@ def parse_config(argv: list[str] | None = None) -> Config:
         action="store_true",
         help="print the exposed tool list and prompt; do not call the model",
     )
+    parser.add_argument(
+        "--no-preflight",
+        action="store_true",
+        help="skip the plane_status call that runs before the first model turn",
+    )
     args = parser.parse_args(argv)
     extra = _split_csv(args.tools)
     prompt = args.prompt if args.prompt.is_absolute() else (Path.cwd() / args.prompt)
@@ -954,6 +1070,7 @@ def parse_config(argv: list[str] | None = None) -> Config:
         prompt_path=prompt,
         rules=rules,
         dry_run=args.dry_run,
+        preflight=not args.no_preflight,
         task=args.task,
     )
 

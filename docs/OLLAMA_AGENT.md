@@ -71,7 +71,8 @@ Useful flags:
 | `--tools` | (see below) | Comma-separated names to **add** to the allowlist. Repeatable. |
 | `--rules` | (none) | Operator protocol file appended to the system prompt. Repeatable. |
 | `--prompt` | `docs/OLLAMA_AGENT_PROMPT.md` | Replaces the default rules file |
-| `--dry-run` | off | Print tools and prompt. No `/api/chat` call. |
+| `--dry-run` | off | Print tools and prompt. No `/api/chat` call and no preflight. |
+| `--no-preflight` | off | Skip the `plane_status` call that runs before the model. |
 
 Each run appends a JSONL transcript at `receipts/ollama-agent/<UTC timestamp>.jsonl` (gitignored) and prints a short trace on stdout. The model is called with `think: false`.
 
@@ -100,10 +101,11 @@ Default allowlist:
 
 ## Loop
 
-1. Send the task, the system prompt, and the exposed tool schemas to `POST /api/chat`.
-2. Parse `message.tool_calls`.
-3. No tool calls: print the answer and stop.
-4. Otherwise dispatch each call, append `{"role":"tool","tool_name":...,"content":...}`, and repeat.
+1. Call `plane_status` before the model speaks. The trace prints the actor and whether a freeze is engaged. A status body that *reports* a freeze does not stop the run. A gate FREEZE, any other denial, or a failed status does, and the model is not called. `--no-preflight` skips this. `--dry-run` does not call it.
+2. Send the task, the system prompt, and the exposed tool schemas to `POST /api/chat`.
+3. Parse `message.tool_calls`. If that list is empty, also parse `<tool_call>` blocks in `content` (a JSON `{"name","arguments"}` object, or Qwen `<function=...><parameter=...>`). Prose that merely names a tool is not a call. Parsed names still have to be exact exposed names.
+4. No tool calls: print the answer and stop.
+5. Otherwise dispatch each call, append `{"role":"tool","tool_name":...,"content":...}`, and repeat.
 
 Stops, without another model turn and without retrying the call:
 

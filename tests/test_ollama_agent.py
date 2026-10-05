@@ -88,6 +88,7 @@ def _cfg(tmp_path: Path, **overrides) -> agent.Config:
         max_steps=8,
         max_consecutive_errors=3,
         max_spray=3,
+        preflight=False,
     )
     for key, value in overrides.items():
         setattr(cfg, key, value)
@@ -566,6 +567,8 @@ def test_parse_config_defaults():
     assert cfg.timeout_s == 180
     assert cfg.dry_run is False
     assert cfg.think is False
+    assert cfg.preflight is True
+    assert agent.parse_config(["task", "--no-preflight"]).preflight is False
     widened = agent.parse_config(["task", "--tools", "shell_exec,plane_status", "--max-steps", "2"])
     assert "shell_exec" in widened.tool_candidates
     assert widened.max_steps == 2
@@ -577,3 +580,156 @@ def test_exit_codes():
     assert agent.exit_code(agent.RunResult("deny")) == 3
     assert agent.exit_code(agent.RunResult("confirm")) == 4
     assert agent.exit_code(agent.RunResult("max_steps")) == 6
+
+
+def test_content_tool_call_is_dispatched_for_an_exact_name(tmp_path):
+    result, plane, ollama, text = _run(
+        tmp_path,
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    '<tool_call>\n{"name": "shell_read_file", "arguments": {"path": "README.md"}}\n</tool_call>'
+                ),
+            },
+            {"role": "assistant", "content": "read it"},
+        ],
+        _ok,
+    )
+    assert result.reason == "answered"
+    assert plane.calls == [("shell_read_file", {"path": "README.md"})]
+    assert ollama.requests[1]["messages"][-1]["role"] == "tool"
+    sources = [row.get("tool_call_source") for row in result.events if row.get("kind") == "model"]
+    assert sources[0] == "content"
+
+
+def test_qwen_xml_tool_call_is_dispatched(tmp_path):
+    content = (
+        "<tool_call>\n"
+        "<function=shell_read_file>\n"
+        "<parameter=path>\nREADME.md\n</parameter>\n"
+        "</function>\n"
+        "</tool_call>"
+    )
+    result, plane, _ollama, _text = _run(
+        tmp_path,
+        [
+            {"role": "assistant", "content": content},
+            {"role": "assistant", "content": "done"},
+        ],
+        _ok,
+    )
+    assert result.reason == "answered"
+    assert plane.calls == [("shell_read_file", {"path": "README.md"})]
+
+
+def test_prose_that_names_a_tool_is_not_a_call(tmp_path):
+    result, plane, ollama, _text = _run(
+        tmp_path,
+        [{"role": "assistant", "content": "I would call plane_status, but this sentence is the answer."}],
+        _ok,
+    )
+    assert result.reason == "answered"
+    assert plane.calls == []
+    assert len(ollama.requests) == 1
+
+
+def test_content_unknown_tool_is_not_forwarded(tmp_path):
+    result, plane, ollama, _text = _run(
+        tmp_path,
+        [
+            {
+                "role": "assistant",
+                "content": '<tool_call>{"name": "shell_exec", "arguments": {"argv": ["id"]}}</tool_call>',
+            },
+            {"role": "assistant", "content": "stopped asking"},
+        ],
+        _ok,
+    )
+    assert result.reason == "answered"
+    assert plane.calls == []
+    blocked = json.loads(
+        [m for m in ollama.requests[1]["messages"] if m["role"] == "tool"][0]["content"]
+    )
+    assert blocked["code"] == "TOOL_NOT_EXPOSED"
+    dotted = agent.parse_content_tool_calls(
+        '<tool_call>{"name": "shell.read_file", "arguments": {"path": "a"}}</tool_call>'
+    )
+    assert dotted == [{"name": "shell.read_file", "arguments": {"path": "a"}}]
+
+
+def test_dotted_content_name_is_a_local_miss(tmp_path):
+    result, plane, _ollama, _text = _run(
+        tmp_path,
+        [
+            {
+                "role": "assistant",
+                "content": '<tool_call>{"name": "shell.read_file", "arguments": {"path": "README.md"}}</tool_call>',
+            },
+            {"role": "assistant", "content": "ok"},
+        ],
+        _ok,
+    )
+    assert result.reason == "answered"
+    assert plane.calls == []
+
+
+def test_preflight_records_actor_before_the_model(tmp_path):
+    def handler(name, args):
+        if name == "plane_status" and not args:
+            return {
+                "executed": True,
+                "verdict": {"decision": "ALLOW", "code": "OK"},
+                "result": {
+                    "ok": True,
+                    "actors": {"current": "ollama"},
+                    "freeze": {"engaged": True, "detail": "FREEZE engaged — only allowed_while_frozen tools will execute"},
+                },
+            }
+        return _ok(name, args)
+
+    result, plane, ollama, text = _run(
+        tmp_path,
+        [{"role": "assistant", "content": "freeze is engaged"}],
+        handler,
+        preflight=True,
+    )
+    assert result.reason == "answered"
+    assert plane.calls[0] == ("plane_status", {})
+    assert len(ollama.requests) == 1
+    assert "preflight plane_status → ok actor=ollama freeze=engaged" in text
+    assert any(row.get("kind") == "preflight" and row.get("freeze_engaged") is True for row in result.events)
+
+
+def test_preflight_deny_stops_before_the_model(tmp_path):
+    def handler(_name, _args):
+        return {
+            "executed": False,
+            "verdict": {"decision": "DENY", "code": "FREEZE", "detail": "frozen"},
+            "result": None,
+        }
+
+    result, plane, ollama, text = _run(
+        tmp_path,
+        [{"role": "assistant", "content": "should not be asked"}],
+        handler,
+        preflight=True,
+    )
+    assert result.reason == "freeze"
+    assert plane.calls == [("plane_status", {})]
+    assert ollama.requests == []
+    assert "not starting the model" in text
+
+
+def test_preflight_failure_stops_before_the_model(tmp_path):
+    def handler(_name, _args):
+        return {"ok": False, "code": "MCP_ERROR", "detail": "session dropped"}
+
+    result, _plane, ollama, _text = _run(
+        tmp_path,
+        [{"role": "assistant", "content": "should not be asked"}],
+        handler,
+        preflight=True,
+    )
+    assert result.reason == "preflight"
+    assert ollama.requests == []
