@@ -24,3 +24,5 @@ dist/
 *.egg-info/
 .DS_Store
 receipts/cua-session.json
+# ollama harness transcripts (also covered by receipts/ and *.jsonl)
+receipts/ollama-agent/
