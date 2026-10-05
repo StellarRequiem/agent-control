@@ -256,8 +256,11 @@ class AssuredPlaneHost:
                 "plane.receipts_rotate",
             }
         )
-        # chain_repair_allow needs mcp-assure with claim-ladder receipts work;
-        # tolerate older PyPI installs in CI until that release is published.
+        # chain_repair_allow needs mcp-assure with claim-ladder receipts work.
+        # 0.3.2 (what CI installs) rejects the kwarg and then denies every tool,
+        # including these two, once verify_file fails. The host fallback in call()
+        # runs them without appending that deny onto the broken file.
+        self._engine_chain_repair = True
         try:
             engine = AssureEngine(
                 load_local_pack(),
@@ -267,6 +270,7 @@ class AssuredPlaneHost:
                 chain_repair_allow=chain_repair,
             )
         except TypeError:
+            self._engine_chain_repair = False
             engine = AssureEngine(
                 load_local_pack(),
                 receipts_path=str(receipts_path),
@@ -528,7 +532,67 @@ class AssuredPlaneHost:
 
     def call(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         self._maybe_reload_pack()
+        if self._chain_repair_bypass(name):
+            return self._call_chain_repair(name, arguments)
         return self._dispatcher.call_tool(self._bound_call(name, arguments))
+
+    def _chain_repair_bypass(self, name: str) -> bool:
+        """Diagnose or rotate without letting the gate append onto a broken file.
+
+        When the installed AssureEngine has no chain_repair_allow, evaluate()
+        denies these tools with CHAIN_BROKEN before the handler, and _finish
+        appends that deny using the poison tip. An intact chain, a missing
+        file, and every other tool stay on the normal gate.
+        """
+        if self._engine_chain_repair:
+            return False
+        if name not in ("plane.receipts_status", "plane.receipts_rotate"):
+            return False
+        engine = self._dispatcher.engine
+        freeze = engine.freeze_path
+        if freeze and Path(freeze).is_file() and name not in engine.freeze_allow:
+            return False
+        path = Path(self.receipts_path)
+        if not path.is_file():
+            return False
+        from mcp_assure.receipts import ReceiptChain
+
+        ok, _msg = ReceiptChain.verify_file(str(path))
+        return not ok
+
+    def _call_chain_repair(self, name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
+        call = self._bound_call(name, arguments)
+        handler = {
+            "plane.receipts_status": self._plane_receipts_status,
+            "plane.receipts_rotate": self._plane_receipts_rotate,
+        }[name]
+        verdict = {
+            "decision": "ALLOW",
+            "tool": name,
+            "code": "OK",
+            "detail": (
+                "chain repair ran locally; the installed gate would deny "
+                "CHAIN_BROKEN and append onto the broken file"
+            ),
+            "allowed": True,
+            "receipt_hash": None,
+            "receipt_id": None,
+        }
+        try:
+            result = handler(call.arguments or {})
+        except Exception as exc:  # noqa: BLE001 — same surface as AssuredRunner.invoke
+            return {
+                "verdict": verdict,
+                "executed": False,
+                "result": None,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+        return {
+            "verdict": verdict,
+            "executed": True,
+            "result": result,
+            "error": None,
+        }
 
     def authorize_only(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         self._maybe_reload_pack()
@@ -581,11 +645,74 @@ class AssuredPlaneHost:
         from mcp_assure.receipts import ReceiptChain
 
         force = bool((args or {}).get("force"))
-        out = ReceiptChain.rotate_if_broken(str(self.receipts_path), force=force)
+        rotate = getattr(ReceiptChain, "rotate_if_broken", None)
+        if callable(rotate):
+            out = rotate(str(self.receipts_path), force=force)
+            if not isinstance(out, dict):
+                out = {
+                    "ok": False,
+                    "code": "ROTATE_FAILED",
+                    "detail": "rotate_if_broken did not return an object",
+                }
+        else:
+            out = self._rotate_receipt_file(force=force)
+        if out.get("code") in ("ROTATED", "EMPTY"):
+            # The file on disk is a new chain. The engine object still holds the
+            # previous tip (the poison hash, or the receipt just archived), and
+            # the next append would fail verify_file if that tip were reused.
+            self._reset_receipt_chain()
         out["claim"] = (
             "rotates host receipt log only; does not erase leash history or SOC incidents"
         )
         return out
+
+    def _rotate_receipt_file(self, *, force: bool) -> dict[str, Any]:
+        """Archive a broken chain when ReceiptChain has no rotate_if_broken.
+
+        An empty replacement verifies as zero receipts. An intact file is left
+        in place unless force is set.
+        """
+        from datetime import datetime, timezone
+
+        from mcp_assure.receipts import ReceiptChain
+
+        path = Path(self.receipts_path)
+        if not path.is_file():
+            return {
+                "ok": True,
+                "code": "EMPTY",
+                "path": str(path),
+                "detail": "no receipt file to rotate",
+            }
+        ok, msg = ReceiptChain.verify_file(str(path))
+        if ok and not force:
+            return {
+                "ok": True,
+                "code": "INTACT",
+                "path": str(path),
+                "intact": True,
+                "detail": msg,
+            }
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        archive = path.with_name(f"{path.name}.{stamp}.broken")
+        n = 0
+        while archive.exists():
+            n += 1
+            archive = path.with_name(f"{path.name}.{stamp}.{n}.broken")
+        path.replace(archive)
+        path.write_text("", encoding="utf-8")
+        return {
+            "ok": True,
+            "code": "ROTATED",
+            "path": str(path),
+            "archived": str(archive),
+            "detail": msg,
+        }
+
+    def _reset_receipt_chain(self) -> None:
+        from mcp_assure.receipts import ReceiptChain
+
+        self._dispatcher.engine.chain = ReceiptChain(str(self.receipts_path))
 
     def _detect_mediated_shell_config(self) -> dict[str, Any]:
         return detect_mediated_shell_config()
