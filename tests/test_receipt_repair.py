@@ -122,12 +122,31 @@ def test_force_rotate_of_an_intact_chain_restarts_at_genesis(tmp_path):
     assert _lines(path)[0]["prev_hash"] == GENESIS
 
 
-def test_missing_file_status_and_rotate(tmp_path):
+def test_missing_file_is_an_intact_gated_call(tmp_path):
+    """A missing file is not a broken chain, so the gate runs and writes the receipt.
+
+    The handler then sees that new line and reports INTACT. EMPTY_OR_NEW is only
+    what the handler returns when it itself observes no file.
+    """
     host = _host(tmp_path)
+    path = tmp_path / "chain.jsonl"
     status = host.call("plane.receipts_status")
     assert status["executed"] is True
-    assert status["result"]["code"] == "EMPTY_OR_NEW"
+    assert status["result"]["code"] == "INTACT"
     assert status["result"]["intact"] is True
+    ok, msg = ReceiptChain.verify_file(str(path))
+    assert ok, msg
+    assert _lines(path)[0]["prev_hash"] == GENESIS
+
     rotated = host.call("plane.receipts_rotate", {})
     assert rotated["executed"] is True
-    assert rotated["result"]["code"] == "EMPTY"
+    assert rotated["result"]["code"] == "INTACT"
+
+
+def test_handler_reports_empty_when_it_sees_no_file(tmp_path):
+    host = _host(tmp_path)
+    status = host._plane_receipts_status()
+    assert status["code"] == "EMPTY_OR_NEW"
+    assert status["intact"] is True
+    rotated = host._plane_receipts_rotate({})
+    assert rotated["code"] == "EMPTY"
