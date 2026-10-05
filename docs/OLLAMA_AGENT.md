@@ -116,6 +116,10 @@ Stops, without another model turn and without retrying the call:
 
 `plane_status` is allowed to *report* that a freeze is engaged. That successful status call is not itself a FREEZE denial, and the loop does not treat it as one.
 
+## Closeout
+
+After the model answer, or after a stop, the harness prints `HARNESS VERIFIED`. Tested, Results, Live-proof, and Gaps are taken from the preflight and the tool calls this process dispatched. A tool that was rejected locally is listed as not forwarded. The model's own VERIFIED block stays in the answer; it is not the record. Live-proof is the transcript path and the task string to re-run, not a claim that the plane was proven beyond this process.
+
 ## Honest ceiling
 
 - **Prototype.** One Python file, a mocked test loop, and a stdio client. It is not a second Codex.

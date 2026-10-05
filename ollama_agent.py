@@ -107,6 +107,7 @@ class RunResult:
     detail: dict[str, Any] = field(default_factory=dict)
     transcript_path: Path | None = None
     events: list[dict[str, Any]] = field(default_factory=list)
+    closeout: str = ""
 
 
 def mcp_launch_command(cfg: Config) -> tuple[str, list[str]]:
@@ -652,6 +653,7 @@ class AgentLoop:
         self.plane = plane
         self.ollama = ollama
         self.out = out
+        self.task = ""
         self.deadline = time.monotonic() + cfg.timeout_s
 
     def remaining(self) -> float:
@@ -661,6 +663,7 @@ class AgentLoop:
         return self.remaining() <= 0
 
     def run(self, task: str) -> RunResult:
+        self.task = task
         advertised = list(self.plane.list_tools())
         exposed, missing = select_tools(advertised, self.cfg.tool_candidates)
         prompt = load_system_prompt(self.cfg.prompt_path, self.cfg.rules, exposed)
@@ -686,7 +689,6 @@ class AgentLoop:
                 print("dry-run (no model call)", file=self.out)
                 print("system prompt:", file=self.out)
                 print(prompt, file=self.out)
-                transcript.write({"kind": "stop", "reason": "dry_run"})
                 return self._finish(transcript, "dry_run")
             exposed_names = set(names)
             if self.cfg.preflight:
@@ -952,8 +954,20 @@ class AgentLoop:
         if missing:
             print("not advertised, not exposed: " + ", ".join(missing), file=self.out)
 
+    def _closeout(self, transcript: Transcript, reason: str) -> str:
+        text = harness_closeout(
+            transcript.events,
+            reason=reason,
+            task=self.task,
+            transcript_path=transcript.path,
+        )
+        print(text, file=self.out)
+        transcript.write({"kind": "closeout", "reason": reason, "text": text})
+        return text
+
     def _stop(self, transcript: Transcript, reason: str, **detail: Any) -> RunResult:
         answer = str(detail.pop("answer", "") or "")
+        closeout = self._closeout(transcript, reason)
         transcript.write({"kind": "stop", "reason": reason, "answer": answer, **detail})
         if reason != "answered":
             print(f"stop: {reason}", file=self.out)
@@ -966,16 +980,101 @@ class AgentLoop:
             detail=detail,
             transcript_path=transcript.path,
             events=list(transcript.events),
+            closeout=closeout,
         )
 
     def _finish(self, transcript: Transcript, reason: str) -> RunResult:
+        closeout = self._closeout(transcript, reason)
+        transcript.write({"kind": "stop", "reason": reason})
         print(f"stop: {reason}", file=self.out)
         print(f"transcript: {transcript.path}", file=self.out)
         return RunResult(
             reason=reason,
             transcript_path=transcript.path,
             events=list(transcript.events),
+            closeout=closeout,
         )
+
+
+def _payload_code(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else {}
+    verdict = payload.get("verdict") if isinstance(payload.get("verdict"), dict) else {}
+    for source in (result, verdict, payload):
+        code = source.get("code") if isinstance(source, dict) else None
+        if code:
+            return str(code)
+    return ""
+
+
+def harness_closeout(
+    events: list[dict[str, Any]],
+    *,
+    reason: str,
+    task: str,
+    transcript_path: Path | None,
+) -> str:
+    """VERIFIED block from calls this process actually made.
+
+    The model's own closeout is narrative. This one is the record.
+    """
+    tested: list[str] = []
+    results: list[str] = []
+    gaps: list[str] = []
+    for event in events:
+        kind = event.get("kind")
+        if kind == "preflight":
+            if event.get("skipped"):
+                gaps.append("preflight skipped: plane_status was not exposed")
+                continue
+            tested.append("preflight plane_status")
+            bits = [str(event.get("classification") or "?")]
+            if event.get("actor"):
+                bits.append(f"actor={event['actor']}")
+            bits.append("freeze=engaged" if event.get("freeze_engaged") else "freeze=clear")
+            code = _payload_code(event.get("result"))
+            if code:
+                bits.append(f"code={code}")
+            results.append("plane_status " + " ".join(bits))
+        elif kind == "tool":
+            name = str(event.get("name") or "(unnamed)")
+            if event.get("forwarded"):
+                tested.append(f"step {event.get('step')} {name}")
+                line = f"{name} {event.get('classification')}"
+                code = _payload_code(event.get("result"))
+                if code:
+                    line += f" code={code}"
+                if event.get("stripped_operator_confirm"):
+                    line += " operator_confirm stripped"
+                results.append(line)
+            else:
+                code = _payload_code(event.get("result")) or "TOOL_NOT_EXPOSED"
+                results.append(f"{name} not forwarded code={code}")
+                gaps.append(f"{name} was not sent to the plane")
+    if reason == "dry_run":
+        tested_line = "none; dry-run did not call the model or the plane"
+        gaps.append("dry-run")
+    elif tested:
+        tested_line = "; ".join(tested)
+    else:
+        tested_line = "none"
+    if reason not in {"answered", "dry_run"}:
+        gaps.append(f"stopped: {reason}")
+    if reason == "answered":
+        gaps.append("model prose was not re-checked against tool results")
+    gaps.append("this block records this process only")
+    proof = f"transcript {transcript_path}" if transcript_path else "none"
+    if task and reason != "dry_run":
+        proof = f"re-run with task {task!r}; {proof}"
+    lines = [
+        "HARNESS VERIFIED",
+        f"- Tested: {tested_line}",
+        f"- Results: {'; '.join(results) if results else 'no tool results'}",
+        f"- Live-proof: {proof}",
+        f"- Gaps: {'; '.join(gaps)}",
+    ]
+    return "\n".join(lines)
 
 
 def _assistant_message(message: dict[str, Any]) -> dict[str, Any]:

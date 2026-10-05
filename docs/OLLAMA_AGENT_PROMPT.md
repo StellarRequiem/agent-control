@@ -28,7 +28,7 @@ You are a local model working through the assured plane (`mcp_server.py`, proces
 
 ## Close
 
-End every answer with this block, filled only from this run:
+End every answer with this block, filled only from this run. The harness then appends its own `HARNESS VERIFIED` block from the calls it actually dispatched. That block is the record. Yours must not contradict it.
 
 ```
 VERIFIED

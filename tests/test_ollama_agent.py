@@ -574,6 +574,97 @@ def test_parse_config_defaults():
     assert widened.max_steps == 2
 
 
+def test_harness_closeout_uses_only_dispatched_calls():
+    text = agent.harness_closeout(
+        [
+            {
+                "kind": "preflight",
+                "classification": "ok",
+                "actor": "ollama",
+                "freeze_engaged": False,
+                "result": {"verdict": {"code": "OK"}, "result": {"ok": True}},
+            },
+            {
+                "kind": "tool",
+                "step": 1,
+                "name": "shell_read_file",
+                "forwarded": True,
+                "classification": "ok",
+                "result": {"result": {"code": "READ"}},
+            },
+            {
+                "kind": "tool",
+                "step": 1,
+                "name": "shell_exec",
+                "forwarded": False,
+                "classification": "spray",
+                "result": {"code": "TOOL_NOT_EXPOSED"},
+            },
+        ],
+        reason="answered",
+        task="read the file",
+        transcript_path=Path("/tmp/run.jsonl"),
+    )
+    assert "HARNESS VERIFIED" in text
+    assert "preflight plane_status" in text
+    assert "step 1 shell_read_file" in text
+    assert "code=READ" in text
+    assert "shell_exec not forwarded code=TOOL_NOT_EXPOSED" in text
+    assert "shell_exec was not sent to the plane" in text
+    assert "model prose was not re-checked" in text
+    assert "actor=ollama" in text
+
+
+def test_round_trip_prints_harness_closeout(tmp_path):
+    result, _plane, _ollama, text = _run(
+        tmp_path,
+        [
+            _tool_call("shell_read_file", {"path": "README.md"}),
+            {"role": "assistant", "content": "done"},
+        ],
+        _ok,
+    )
+    assert result.reason == "answered"
+    assert result.closeout.startswith("HARNESS VERIFIED")
+    assert "step 1 shell_read_file" in result.closeout
+    assert "code=READ" in result.closeout
+    assert "HARNESS VERIFIED" in text
+    assert result.closeout in text
+
+
+def test_dry_run_closeout_records_no_calls(tmp_path):
+    result, plane, ollama, text = _run(
+        tmp_path,
+        [{"role": "assistant", "content": "no"}],
+        _ok,
+        dry_run=True,
+    )
+    assert result.reason == "dry_run"
+    assert plane.calls == []
+    assert ollama.requests == []
+    assert "dry-run did not call the model or the plane" in result.closeout
+    assert "HARNESS VERIFIED" in text
+
+
+def test_freeze_closeout_records_the_stop(tmp_path):
+    def handler(_name, _args):
+        return {
+            "executed": False,
+            "verdict": {"decision": "DENY", "code": "FREEZE", "detail": "frozen"},
+            "result": None,
+        }
+
+    result, _plane, _ollama, _text = _run(
+        tmp_path,
+        [_tool_call("shell_read_file", {"path": "README.md"})],
+        handler,
+    )
+    assert result.reason == "freeze"
+    assert "code=FREEZE" in result.closeout
+    assert "stopped: freeze" in result.closeout
+    assert "model prose was not re-checked" not in result.closeout
+
+
 def test_exit_codes():
     assert agent.exit_code(agent.RunResult("answered")) == 0
     assert agent.exit_code(agent.RunResult("freeze")) == 2
