@@ -19,6 +19,37 @@ from typing import Any
 HOME = Path.home()
 BROWSER_ROOT = HOME / "browser-leash"
 DESKTOP_ROOT = HOME / "desktop-leash"
+
+
+def _session_claim_ceiling() -> dict[str, Any]:
+    """Align with plane.status — no hard-coded false for shell gating."""
+    try:
+        from host.plane_host import detect_mediated_shell_config
+    except ImportError:
+        # lifecycle may run as script with different path
+        import sys
+
+        ac = HOME / "agent-control"
+        if str(ac) not in sys.path:
+            sys.path.insert(0, str(ac))
+        from host.plane_host import detect_mediated_shell_config  # type: ignore
+
+    med = detect_mediated_shell_config()
+    shell_gated = bool(
+        med.get("native_bash_deny_configured") and med.get("agent_control_mcp_configured")
+    )
+    return {
+        "plane_tools_gated": True,
+        "native_runtime_shell_gated": shell_gated,
+        "native_shell_gate_mechanism": "grok_permission_deny+mcp_agent_control",
+        "file_edit_tools_native": True,
+        "auto_post": False,
+        "always_armed": False,
+        "abhorrent_lockdown": True,
+        "enterprise_soc": False,
+        "claude_actor_observe": True,
+    }
+
 BROWSER_SERVER = BROWSER_ROOT / "bridge" / "server.py"
 DESKTOP_SERVER = DESKTOP_ROOT / "bridge" / "server.py"
 BROWSER_URL = "http://127.0.0.1:8756"
@@ -313,14 +344,7 @@ def session_surface() -> dict[str, Any]:
                 if a.get("rule") != "QUIET"
             ][:12],
         },
-        "claim_ceiling": {
-            "plane_tools_gated": True,
-            "native_runtime_shell_gated": False,
-            "auto_post": False,
-            "always_armed": False,
-            "abhorrent_lockdown": True,
-            "enterprise_soc": False,
-        },
+        "claim_ceiling": _session_claim_ceiling(),
         "sop": [
             "1. available=true (launchd bridges)",
             "2. Soft Reload extension if version mismatch",
