@@ -2,7 +2,7 @@
   "meta": {
     "id": "local_planes",
     "description": "Planes + gated shell + CUA session tools. Deny-by-default. Not ambient OS control.",
-    "version": 11
+    "version": 15
   },
   "tools": {
     "plane.status": {
@@ -41,6 +41,12 @@
         "force"
       ],
       "max_arg_bytes": 512
+    },
+    "plane.reload_handlers": {
+      "description": "Re-import shell/browser/desktop handlers from disk (named cmds + bugfixes without full Grok restart)",
+      "max_blast": 1,
+      "allowed_args": [],
+      "max_arg_bytes": 64
     },
     "browser.status": {
       "description": "browser-leash bridge status",
@@ -94,21 +100,53 @@
       ],
       "allowed_args": [
         "url",
-        "tabId"
+        "tabId",
+        "tab_id",
+        "active"
       ],
       "max_arg_bytes": 2048
     },
-    "browser.snapshot": {
-      "description": "Active page text snapshot",
+    "browser.page_info": {
+      "description": "Tab url/title (optional tabId for multi-tab orient)",
       "max_blast": 1,
-      "allowed_args": [],
+      "allowed_args": [
+        "tabId",
+        "tab_id",
+        "id"
+      ],
+      "max_arg_bytes": 256
+    },
+    "browser.workspace": {
+      "description": "Multi-tab orient: list tabs + optional page.info + snapshot preview",
+      "max_blast": 1,
+      "allowed_args": [
+        "tabId",
+        "tab_id",
+        "id",
+        "match",
+        "snapshot",
+        "snapshot_chars"
+      ],
+      "max_arg_bytes": 1024
+    },
+    "browser.snapshot": {
+      "description": "Page text snapshot (optional tabId for non-active tab)",
+      "max_blast": 1,
+      "allowed_args": [
+        "tabId",
+        "tab_id",
+        "id"
+      ],
       "max_arg_bytes": 256
     },
     "browser.screenshot": {
-      "description": "Capture visible tab",
+      "description": "Capture visible tab (activates tabId first if provided)",
       "max_blast": 1,
       "allowed_args": [
-        "out"
+        "out",
+        "tabId",
+        "tab_id",
+        "id"
       ],
       "max_arg_bytes": 1024
     },
@@ -119,7 +157,9 @@
         "selector"
       ],
       "allowed_args": [
-        "selector"
+        "selector",
+        "tabId",
+        "tab_id"
       ],
       "max_arg_bytes": 1024
     },
@@ -131,16 +171,20 @@
       ],
       "allowed_args": [
         "selector",
-        "text"
+        "text",
+        "tabId",
+        "tab_id"
       ],
       "max_arg_bytes": 16384
     },
     "browser.scroll": {
-      "description": "Scroll active page",
+      "description": "Scroll page (optional tabId)",
       "max_blast": 1,
       "allowed_args": [
         "dy",
-        "dx"
+        "dx",
+        "tabId",
+        "tab_id"
       ],
       "max_arg_bytes": 256
     },
@@ -154,7 +198,8 @@
         "ms",
         "timeout_ms",
         "timeout",
-        "tabId"
+        "tabId",
+        "tab_id"
       ],
       "max_arg_bytes": 1024
     },
@@ -166,37 +211,49 @@
       ],
       "allowed_args": [
         "selector",
-        "limit"
+        "limit",
+        "tabId",
+        "tab_id"
       ],
       "max_arg_bytes": 1024
     },
     "browser.links": {
-      "description": "List unique hrefs on active page",
+      "description": "List unique hrefs on page (optional tabId)",
       "max_blast": 1,
       "required_args": [],
       "allowed_args": [
-        "limit"
+        "limit",
+        "tabId",
+        "tab_id"
       ],
       "max_arg_bytes": 256
     },
     "browser.back": {
-      "description": "History back on active tab",
+      "description": "History back (optional tabId)",
       "max_blast": 2,
-      "allowed_args": [],
+      "allowed_args": [
+        "tabId",
+        "tab_id"
+      ],
       "max_arg_bytes": 256
     },
     "browser.forward": {
-      "description": "History forward on active tab",
+      "description": "History forward (optional tabId)",
       "max_blast": 2,
-      "allowed_args": [],
+      "allowed_args": [
+        "tabId",
+        "tab_id"
+      ],
       "max_arg_bytes": 256
     },
     "browser.reload": {
-      "description": "Reload active tab",
+      "description": "Reload tab (optional tabId)",
       "max_blast": 2,
       "required_args": [],
       "allowed_args": [
-        "bypass_cache"
+        "bypass_cache",
+        "tabId",
+        "tab_id"
       ],
       "max_arg_bytes": 256
     },
@@ -634,6 +691,27 @@
         "path",
         "content",
         "mode"
+      ],
+      "max_arg_bytes": 1048576,
+      "forbidden_args": [
+        "token",
+        "password",
+        "api_key"
+      ]
+    },
+    "shell.apply_patch": {
+      "description": "Single-file exact str replace under allowed root (mediated StrReplace). Blocked under FREEZE.",
+      "max_blast": 3,
+      "required_args": [
+        "path",
+        "old_string",
+        "new_string"
+      ],
+      "allowed_args": [
+        "path",
+        "old_string",
+        "new_string",
+        "replace_all"
       ],
       "max_arg_bytes": 1048576,
       "forbidden_args": [
