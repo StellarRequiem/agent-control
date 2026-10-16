@@ -1,0 +1,52 @@
+{
+  "source": "Existing operator-plane tool; not new daemon",
+  "actual_tool": "mcp__agent_control__plane_status",
+  "actor": "codex",
+  "verdict": {
+    "decision": "ALLOW",
+    "tool": "plane.status",
+    "code": "OK",
+    "detail": "allowed: Aggregate status of browser-leash + desktop-leash + host",
+    "allowed": true,
+    "receipt_hash": "854b1a488a19af9a05bbe4001f222f99cb8e7195bbbb9fe5cbf833df1a317e88",
+    "receipt_id": "894f0cbb-7e31-4e01-8c7c-2b9813c6464d"
+  },
+  "executed": true,
+  "authorization_receipt": {
+    "id": "894f0cbb-7e31-4e01-8c7c-2b9813c6464d",
+    "hash": "854b1a488a19af9a05bbe4001f222f99cb8e7195bbbb9fe5cbf833df1a317e88",
+    "chain_position": 328
+  },
+  "execution_receipt": {
+    "id": "794c79b3-a9fe-4c3d-beba-2604a530f443",
+    "hash": "6b276e3861985cf3da8dc3c30aad1b5629122a76582052c386a5b6fe540386fd",
+    "chain_position": 654,
+    "intent_id": "14a38d88-fcd2-4d23-b7fc-f688b8e74ab7",
+    "handler_executed": true
+  },
+  "result": {
+    "ok": true,
+    "browser_leash": {
+      "ok": true,
+      "bridge": "up",
+      "armed": true
+    },
+    "desktop_leash": {
+      "ok": true,
+      "bridge": "up",
+      "armed": true,
+      "version": "0.7.0"
+    },
+    "desktop_profile_policy": {
+      "available": true,
+      "code": "PROFILE_POLICY_VALID",
+      "hard_denials": 13,
+      "profiles": 26
+    },
+    "runtime_enforcement": {
+      "status": "UNKNOWN",
+      "reason": "Requires independent native-dispatch and unrelated-tool checks.",
+      "registration_is_enforcement": false
+    }
+  }
+}

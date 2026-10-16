@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "task": "Build Codex sidecar supervisor, halt controls, fresh-session integration and observer groundwork",
+  "authorization": "Latest operator request: build directly plugged-in Codex sidecar with broad mediated capability and ability to halt agentic actions",
+  "route": "Existing operator-plane MCP tools; pure in-memory tests in functions",
+  "targets": [
+    "/Users/llm01/warrant/handoffs/codex-sidecar-2026-10-01",
+    "Read-only official Codex API documentation through approved browser"
+  ],
+  "operations": [
+    "Inspect effective capability and authority state",
+    "Read official documentation",
+    "Implement supervisor and transport/launcher candidate",
+    "Run isolated pure logic and protocol tests",
+    "Stage reviewable source, test fixtures and host installation requirements"
+  ],
+  "excluded": [
+    "Protected host-tree edits after recorded refusal",
+    "Denied workspace reads",
+    "Changing AGENTS.md/index/pins or widening this session's gate",
+    "Live shared-service shutdown/outage",
+    "Access to existing credentials",
+    "Publication or enforcement promotion"
+  ],
+  "native_tools_needed": [],
+  "stop_conditions": [
+    "Unknown API: stop dependent integration rather than invent protocol fields",
+    "Gate refusal: no alternate route",
+    "Absent host runner: report integration tests unexecuted",
+    "No native-route enforcement proof: remain UNKNOWN"
+  ],
+  "live_installation_authorized_by_user_but_route_unavailable": true
+}

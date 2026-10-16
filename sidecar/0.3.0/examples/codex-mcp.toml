@@ -1,0 +1,6 @@
+# Staged snippet. Must be installed by the protected host installer into the isolated Codex configuration.
+# It registers the action surface. It does not disable native tools or establish enforcement.
+[mcp_servers.operator_sidecar]
+command = "/ABSOLUTE/APPROVED/node"
+args = ["/ABSOLUTE/INSTALLED/sidecar/bin/sidecar.mjs", "mcp-proxy", "--socket", "/ABSOLUTE/PRIVATE/RUN/actions.sock"]
+required = true

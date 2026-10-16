@@ -1,0 +1,180 @@
+{
+  "schema": 1,
+  "package": "operator-codex-sidecar",
+  "version": "0.3.0",
+  "status": "STAGED_CANDIDATE",
+  "runtime_enforcement": "UNKNOWN",
+  "source_date": "2026-10-01",
+  "entries": [
+    {
+      "path": "AUTHORIZATION-SCOPE.json",
+      "bytes": 1502,
+      "sha256": "afa15d28d70862380d2536c0555b70dffd17a8e60179912033971175160df9ee"
+    },
+    {
+      "path": "bin/sidecar.mjs",
+      "bytes": 3054,
+      "sha256": "96781305288f1a5d8d52525f56eb7dedf0c696aa18fdc39417ca692f8336c6fb"
+    },
+    {
+      "path": "DEPLOYMENT.md",
+      "bytes": 5911,
+      "sha256": "92a2a21b6f276c103f8622ea84590bb9296004c17af7f782248bad26370e71ee"
+    },
+    {
+      "path": "evidence/BUILD-RESULT.json",
+      "bytes": 1891,
+      "sha256": "d2c316257491473da99d0b6bd217e897416d398cdeca00be4c408e75a8a1ac8a"
+    },
+    {
+      "path": "evidence/LIVE-STATUS.json",
+      "bytes": 1537,
+      "sha256": "f960aa79dc5eb108c86a2de383ff53704461e1e14167d3269282e1c1eae13da6"
+    },
+    {
+      "path": "evidence/LOGIC-TESTS.json",
+      "bytes": 8021,
+      "sha256": "405ede00b2d1d09aa73af9aa0bb2329548ebb52e6d671b12e209f97285fb8c63"
+    },
+    {
+      "path": "evidence/PARSE-CHECK.json",
+      "bytes": 1367,
+      "sha256": "4e4d90131f823ae4dac0fb829290c32968589ac196bbde864849db543d76a12e"
+    },
+    {
+      "path": "examples/arm-payload.template.json",
+      "bytes": 734,
+      "sha256": "f2723fd1be03a832efdeb6b4f05cdde79e17071575f1dd94a091937764f78932"
+    },
+    {
+      "path": "examples/codex-mcp.toml",
+      "bytes": 402,
+      "sha256": "04ed54c4192597336b1d94808102083516cf123b249c9f31986a74d993f716ae"
+    },
+    {
+      "path": "examples/config.template.json",
+      "bytes": 1650,
+      "sha256": "54cff98c7df350eba6193e5953c8e1bde2d2126e3e7ad778c6602551665e4d3a"
+    },
+    {
+      "path": "HOST-ACCEPTANCE.md",
+      "bytes": 4479,
+      "sha256": "ac6599edcf6c71dbd65317613e26db0ed85a87b9aceef06e42a3b52844eb2f12"
+    },
+    {
+      "path": "lib/bridge.mjs",
+      "bytes": 2965,
+      "sha256": "092d62f0233b4d2576c7cc2ac7f86a5934a57c470f74ea85fecf1c2da002eae0"
+    },
+    {
+      "path": "lib/codex-sessions.mjs",
+      "bytes": 5373,
+      "sha256": "3b291cb402e6f1e2a2745cabff9274d30b40e9134bd675b67bace47b10f63a5f"
+    },
+    {
+      "path": "lib/codex-stdio.mjs",
+      "bytes": 4968,
+      "sha256": "f1fb9595009e0e320b13121e942af0148634c81302330ffd4c16c87efe382bf4"
+    },
+    {
+      "path": "lib/controller.mjs",
+      "bytes": 5157,
+      "sha256": "d17c86f665927d90a9e343836eb32abaa913fb30d054bced3a85f4f75d027357"
+    },
+    {
+      "path": "lib/node-config.mjs",
+      "bytes": 3711,
+      "sha256": "8fe48010fd5f7e1a39ecd38084849345fc366410aabd67fc3b88bf539ef0b3d5"
+    },
+    {
+      "path": "lib/runtime.mjs",
+      "bytes": 5686,
+      "sha256": "c96464be88b69d8ad20b47e3ebbb0c4f8e07cf75e17252b3bf6575b6cf0cd967"
+    },
+    {
+      "path": "lib/sockets.mjs",
+      "bytes": 3247,
+      "sha256": "a2bca5b3d806fff79b7feb84dfab6de59c55ca31bccd06320bb5a3813c03f153"
+    },
+    {
+      "path": "lib/supervisor.mjs",
+      "bytes": 9911,
+      "sha256": "7ad238165fb2b4e7ead64d665f7ca2bf367060e86c4d5b807fe169aa5eafe11c"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1083,
+      "sha256": "f38c9fca118233ef86ed8b6a1143331533cc579407ae8db9399e32a818fd1101"
+    },
+    {
+      "path": "package.json",
+      "bytes": 339,
+      "sha256": "68a188ea8d2560b59a72569fa3d61df57eb6076cef891b59de034f4e2927dba5"
+    },
+    {
+      "path": "PROVENANCE.md",
+      "bytes": 2438,
+      "sha256": "3c2078ec613dced58121d9b6848bdc35998dfba27928af854bf6f0fec5dcfefe"
+    },
+    {
+      "path": "README.md",
+      "bytes": 4106,
+      "sha256": "dce06abada27722d62f210e6951d05a955a697f7d64c74a3a22d6f7aae9fbc9a"
+    },
+    {
+      "path": "tests/bridge-tests.mjs",
+      "bytes": 10020,
+      "sha256": "abb8868cd9e50455ffb162bd5e3538eb8de425acd46b8d868683fa08e91b16c6"
+    },
+    {
+      "path": "tests/logic-tests.mjs",
+      "bytes": 14910,
+      "sha256": "76bfdcd9e66531f98b7a1148b35cca7afea0cb12112f2c1a91f3a28623889e11"
+    },
+    {
+      "path": "tests/node.test.mjs",
+      "bytes": 5574,
+      "sha256": "32986cdc4308b064961b291bcceee9ad926cde40888335dcc311bb066b9d097d"
+    },
+    {
+      "path": "tests/run.mjs",
+      "bytes": 657,
+      "sha256": "dbf09d8d96c6d18220d5415172e2948505d5e7d43b8847ccb6725c64990d4734"
+    },
+    {
+      "path": "THREAT-MODEL.md",
+      "bytes": 2877,
+      "sha256": "dd5cc8bab282f0760815d6b221cda91f39b0ba149d14fe9a476bd81d90ab5940"
+    },
+    {
+      "path": "vendor/plane-mount/lib/backend.mjs",
+      "bytes": 4430,
+      "sha256": "74351b37c69e074a06633ed65952ff9a213ee432d2c9c29fe9c99f39ba5715ad"
+    },
+    {
+      "path": "vendor/plane-mount/lib/core.mjs",
+      "bytes": 14437,
+      "sha256": "49eab5a3136d932d77b43260391cd7e10079871ab9f7ecda6078330d44fc1274"
+    },
+    {
+      "path": "vendor/plane-mount/lib/node-state.mjs",
+      "bytes": 4561,
+      "sha256": "160703c795ebf51b96fdc7a12e6dc97a4ce171c135d9f91b96e0837de2f3d52f"
+    },
+    {
+      "path": "vendor/plane-mount/LICENSE",
+      "bytes": 1081,
+      "sha256": "1d2b36bc2d831656d7e36bd940c4541a2bb1f62fad4fe5b8855a1d4e1f8630ee"
+    }
+  ],
+  "excluded": [
+    "MANIFEST.json (self-reference)",
+    "post-write readback receipt bundle if created"
+  ],
+  "tests": {
+    "pure_fixture_passed": 74,
+    "pure_fixture_failed": 0,
+    "node_tests_run": 0,
+    "model_sessions": 0
+  }
+}

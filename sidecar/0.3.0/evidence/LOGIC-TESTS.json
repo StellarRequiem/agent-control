@@ -1,0 +1,316 @@
+{
+  "supervisor_and_codex": {
+    "passed": 45,
+    "failed": 0,
+    "total": 45,
+    "results": [
+      {
+        "name": "status observes proof expiry without waiting for watchdog",
+        "pass": true
+      },
+      {
+        "name": "startup holds actions before host proof",
+        "pass": true
+      },
+      {
+        "name": "missing host proof cannot arm",
+        "pass": true
+      },
+      {
+        "name": "arm rejects invalid boot_id",
+        "pass": true
+      },
+      {
+        "name": "arm rejects invalid config_sha256",
+        "pass": true
+      },
+      {
+        "name": "arm rejects invalid native_routes_denied",
+        "pass": true
+      },
+      {
+        "name": "arm rejects invalid scope_isolation_verified",
+        "pass": true
+      },
+      {
+        "name": "arm rejects invalid ttl_ms",
+        "pass": true
+      },
+      {
+        "name": "audited allowed action executes once",
+        "pass": true
+      },
+      {
+        "name": "wrong lease cannot dispatch",
+        "pass": true
+      },
+      {
+        "name": "wrong session cannot dispatch",
+        "pass": true
+      },
+      {
+        "name": "tool outside lease denied",
+        "pass": true
+      },
+      {
+        "name": "policy denial precedes execution",
+        "pass": true
+      },
+      {
+        "name": "policy unavailability fails closed",
+        "pass": true
+      },
+      {
+        "name": "audit failure closes admission before effect",
+        "pass": true
+      },
+      {
+        "name": "halt closes admission synchronously without awaiting audit",
+        "pass": true
+      },
+      {
+        "name": "halt revokes stale permit",
+        "pass": true
+      },
+      {
+        "name": "halt during authorization prevents dispatch",
+        "pass": true
+      },
+      {
+        "name": "halt during authorization receipt prevents dispatch",
+        "pass": true
+      },
+      {
+        "name": "final-dispatch guard rejects halt during adapter setup",
+        "pass": true
+      },
+      {
+        "name": "late success after halt is not delivered as success",
+        "pass": true
+      },
+      {
+        "name": "cancel callback is requested without claiming physical stop",
+        "pass": true
+      },
+      {
+        "name": "cancel registered after halt is still requested",
+        "pass": true
+      },
+      {
+        "name": "hung effect does not block independent halt path",
+        "pass": true
+      },
+      {
+        "name": "concurrency bound rejects second call",
+        "pass": true
+      },
+      {
+        "name": "budget exhaustion halts",
+        "pass": true
+      },
+      {
+        "name": "host proof expiry halts on watchdog tick",
+        "pass": true
+      },
+      {
+        "name": "lease expiry independently halts",
+        "pass": true
+      },
+      {
+        "name": "clock rollback fails closed",
+        "pass": true
+      },
+      {
+        "name": "valid host renewal retains existing task lease",
+        "pass": true
+      },
+      {
+        "name": "proof replay cannot renew",
+        "pass": true
+      },
+      {
+        "name": "halted supervisor cannot rearm or self-unfreeze",
+        "pass": true
+      },
+      {
+        "name": "halt during arm audit cannot reopen admission",
+        "pass": true
+      },
+      {
+        "name": "restart constructs HELD state",
+        "pass": true
+      },
+      {
+        "name": "enforcement never promoted by arm or successful dispatch",
+        "pass": true
+      },
+      {
+        "name": "Codex initialization uses documented headerless API",
+        "pass": true
+      },
+      {
+        "name": "two fresh threads have distinct roots and no copied history",
+        "pass": true
+      },
+      {
+        "name": "native shell and unsandboxed process APIs are never used",
+        "pass": true
+      },
+      {
+        "name": "inference requires controller guard",
+        "pass": true
+      },
+      {
+        "name": "guard refusal blocks inference before RPC",
+        "pass": true
+      },
+      {
+        "name": "interrupt acknowledgement is not completion proof",
+        "pass": true
+      },
+      {
+        "name": "halt while turn-start reply pending still interrupts known notification",
+        "pass": true
+      },
+      {
+        "name": "server-initiated approval is rejected rather than auto-approved",
+        "pass": true
+      },
+      {
+        "name": "forked thread is not accepted as fresh",
+        "pass": true
+      },
+      {
+        "name": "nonempty returned history is refused",
+        "pass": true
+      }
+    ],
+    "execution_environment": "pure JavaScript with injected fixtures",
+    "live_model_sessions_started": 0,
+    "live_services_stopped": 0
+  },
+  "bridge_and_controller": {
+    "passed": 29,
+    "failed": 0,
+    "total": 29,
+    "results": [
+      {
+        "name": "journal appends serialize while halt can enqueue independently",
+        "pass": true
+      },
+      {
+        "name": "journal failure poisons later appends",
+        "pass": true
+      },
+      {
+        "name": "journal queue is bounded",
+        "pass": true
+      },
+      {
+        "name": "backend final guard follows asynchronous mount work",
+        "pass": true
+      },
+      {
+        "name": "backend refuses calls outside guarded executor",
+        "pass": true
+      },
+      {
+        "name": "preflight can call only read-only plane status",
+        "pass": true
+      },
+      {
+        "name": "backend reconnect is never exposed",
+        "pass": true
+      },
+      {
+        "name": "candidate catalog has no arm grant renew or reconnect",
+        "pass": true
+      },
+      {
+        "name": "candidate cannot smuggle parameters into local halt",
+        "pass": true
+      },
+      {
+        "name": "candidate binding comes from trusted adapter rather than arguments",
+        "pass": true
+      },
+      {
+        "name": "signed control binding rejects purpose=other",
+        "pass": true
+      },
+      {
+        "name": "signed control binding rejects boot_id=other",
+        "pass": true
+      },
+      {
+        "name": "signed control binding rejects config_sha256=cccccccccccc",
+        "pass": true
+      },
+      {
+        "name": "signed control binding rejects expires_at_ms=1000",
+        "pass": true
+      },
+      {
+        "name": "signed control binding rejects expires_at_ms=1000000",
+        "pass": true
+      },
+      {
+        "name": "signed control binding rejects action=exec",
+        "pass": true
+      },
+      {
+        "name": "signed control binding rejects extra=true",
+        "pass": true
+      },
+      {
+        "name": "unsigned arm command is rejected",
+        "pass": true
+      },
+      {
+        "name": "signature verifier refusal precedes controller audit and arming",
+        "pass": true
+      },
+      {
+        "name": "session-mismatched evidence cannot arm",
+        "pass": true
+      },
+      {
+        "name": "arm evidence needs allowed and denied receipt identifiers",
+        "pass": true
+      },
+      {
+        "name": "signed fixture arm does not promote runtime enforcement",
+        "pass": true
+      },
+      {
+        "name": "controller rejects replay within boot",
+        "pass": true
+      },
+      {
+        "name": "grant cannot expand beyond configured capability catalog",
+        "pass": true
+      },
+      {
+        "name": "grant binds server-side session and withholds lease handle",
+        "pass": true
+      },
+      {
+        "name": "halt remains callable while signed verifier is hanging",
+        "pass": true
+      },
+      {
+        "name": "halt during controller audit cannot reopen admission",
+        "pass": true
+      },
+      {
+        "name": "controller audit failure closes admission",
+        "pass": true
+      },
+      {
+        "name": "attached-runtime controller cannot pretend to start or interrupt Codex",
+        "pass": true
+      }
+    ],
+    "environment": "pure JavaScript with injected fixtures; signature/Node/OS not exercised"
+  }
+}

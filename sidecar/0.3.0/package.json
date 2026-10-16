@@ -1,0 +1,15 @@
+{
+  "name": "operator-codex-sidecar",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test:logic": "node tests/run.mjs",
+    "test:node": "node --test tests/node.test.mjs",
+    "test": "node tests/run.mjs && node --test tests/node.test.mjs"
+  },
+  "license": "MIT"
+}

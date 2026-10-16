@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "package": "operator-sidecar-maintenance",
+  "version": "1.0.0",
+  "base_manifest": "0146cc4413cc7a044d3c2e4bbfc538adc144a1abe1a644355345711bd37a67a4",
+  "entries": [
+    {
+      "path": "core.mjs",
+      "bytes": 4590,
+      "sha256": "5a565a302e0852981b6c4885512b0ddba7eb7f6fc8303b5522c81367b9d6e3a3"
+    },
+    {
+      "path": "io.mjs",
+      "bytes": 4298,
+      "sha256": "4ace3788fbfe07c97433a310d72374a4706fd3ed04d717f27eef6c3458c2d206"
+    },
+    {
+      "path": "maintenance.mjs",
+      "bytes": 7409,
+      "sha256": "a9ca3827e33762a7126fa2c03a23c835ba5157fd88a7b84fd232d9fb16d85726"
+    },
+    {
+      "path": "stress.mjs",
+      "bytes": 2426,
+      "sha256": "ef99c38ff2c1e5bb5f722645c3556608ffe0e40e1e0ab44d6128b907acfdd2f4"
+    },
+    {
+      "path": "stress-runner.mjs",
+      "bytes": 347,
+      "sha256": "33bc89382688d189248ac9fe598e0023c1a240e2ade2fb179f8abc79793c0e80"
+    },
+    {
+      "path": "selftest.mjs",
+      "bytes": 5820,
+      "sha256": "dc7311e3c30c1c209db3f93ad2a6cb8eb3613472adaf63559e648c02ff1f4555"
+    }
+  ]
+}
