@@ -6,15 +6,27 @@ import json
 from pathlib import Path
 from typing import Any
 
-from host.http_util import http_json
+from host.desktop_signing import SignedDesktopClient
 
 DESKTOP = "http://127.0.0.1:8757"
 PROFILES = Path(__file__).resolve().parent.parent / "profiles" / "desktop_apps.json"
 
 
 class DesktopHandlers:
-    def __init__(self, base: str = DESKTOP, profiles_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        base: str = DESKTOP,
+        profiles_path: Path | None = None,
+        *,
+        actor: str,
+        client: SignedDesktopClient | None = None,
+    ) -> None:
         self.base = base
+        # Same string the host stamps on receipts. AGENT_CONTROL_ACTOR is the
+        # stdio CLI fallback only; reading it here would let the signature
+        # and the receipt name diverge.
+        self.actor = actor
+        self.client = client or SignedDesktopClient(base, actor)
         self.profiles_path = profiles_path or PROFILES
         self._profiles = self._load_profiles()
         self._input_counts: dict[str, int] = {}
@@ -36,7 +48,13 @@ class DesktopHandlers:
 
     def _action(self, action: str, **extra: Any) -> dict[str, Any]:
         body = {"action": action, **extra}
-        return http_json(self.base, "/v1/action", body)
+        return self._post("/v1/action", body)
+
+    def _get(self, path: str) -> dict[str, Any]:
+        return self.client.call(path)
+
+    def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        return self.client.call(path, body)
 
     def _gate_app_input(self, app: str | None, kind: str) -> dict[str, Any] | None:
         """Host-side profile gate before leash (leash still enforces allowlist)."""
@@ -70,7 +88,7 @@ class DesktopHandlers:
         return None
 
     def status(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
-        return http_json(self.base, "/v1/status")
+        return self._get("/v1/status")
 
     def apps(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._action("desktop.apps")
@@ -102,21 +120,21 @@ class DesktopHandlers:
         }
         if args.get("path"):
             body["path"] = args["path"]
-        return http_json(self.base, "/v1/action", body)
+        return self._post("/v1/action", body)
 
     def cua_observe(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
         body: dict[str, Any] = {"action": "desktop.cua_observe"}
         if args.get("out_dir"):
             body["out_dir"] = args["out_dir"]
-        return http_json(self.base, "/v1/action", body)
+        return self._post("/v1/action", body)
 
     def layout(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
         body: dict[str, Any] = {"action": "desktop.layout"}
         if args.get("path"):
             body["path"] = args["path"]
-        return http_json(self.base, "/v1/action", body)
+        return self._post("/v1/action", body)
 
     def screenshot_window(self, args: dict[str, Any]) -> dict[str, Any]:
         body: dict[str, Any] = {
@@ -126,7 +144,7 @@ class DesktopHandlers:
         }
         if args.get("path"):
             body["path"] = args["path"]
-        return http_json(self.base, "/v1/action", body)
+        return self._post("/v1/action", body)
 
     def click_window(self, args: dict[str, Any]) -> dict[str, Any]:
         body: dict[str, Any] = {
@@ -138,7 +156,7 @@ class DesktopHandlers:
         for k in ("rel_x", "rel_y", "local_x", "local_y"):
             if args.get(k) is not None:
                 body[k] = args[k]
-        return http_json(self.base, "/v1/action", body)
+        return self._post("/v1/action", body)
 
     def d4_session(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
@@ -148,14 +166,14 @@ class DesktopHandlers:
         body: dict[str, Any] = {"open": open_session}
         if args.get("ttl") is not None:
             body["ttl"] = int(args["ttl"])
-        return http_json(self.base, "/v1/d4-session", body)
+        return self._post("/v1/d4-session", body)
 
     def screenshot(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
         body: dict[str, Any] = {"action": "desktop.screenshot"}
         if args.get("out"):
             body["out"] = args["out"]
-        return http_json(self.base, "/v1/action", body)
+        return self._post("/v1/action", body)
 
     def focus(self, args: dict[str, Any]) -> dict[str, Any]:
         app = args["app"]
@@ -213,4 +231,4 @@ class DesktopHandlers:
         approve = args.get("approve")
         yes = approve is True or approve == "true" or approve == 1 or approve == "yes"
         # desktop-leash POST /v1/confirm {id, ok: true|false}
-        return http_json(self.base, "/v1/confirm", {"id": args["id"], "ok": bool(yes)})
+        return self._post("/v1/confirm", {"id": args["id"], "ok": bool(yes)})
