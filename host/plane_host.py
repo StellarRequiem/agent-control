@@ -280,7 +280,7 @@ class AssuredPlaneHost:
             )
 
         self.browser = BrowserHandlers(browser_base)
-        self.desktop = DesktopHandlers(desktop_base)
+        self.desktop = DesktopHandlers(desktop_base, actor=self.actor)
         self.shell = ShellHandlers()
         self.browser_base = browser_base
         self.desktop_base = desktop_base
@@ -429,7 +429,7 @@ class AssuredPlaneHost:
 
         self.shell = sh.ShellHandlers()
         self.browser = bh.BrowserHandlers(self.browser_base)
-        self.desktop = dh.DesktopHandlers(self.desktop_base)
+        self.desktop = dh.DesktopHandlers(self.desktop_base, actor=self.actor)
 
         # Rebind tools that close over handler methods (AssuredRunner.handlers)
         try:
