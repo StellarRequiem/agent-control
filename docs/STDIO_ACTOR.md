@@ -47,3 +47,9 @@ The actor is set once at process start. A tool argument named `actor`, `agent`, 
 ## Honest ceiling
 
 The stdio actor is self-declared by the launching client's config (local trust). The operator who writes the Codex or Cursor MCP block chooses the string receipts will show. A bearer passport binds the actor to a token the caller has to present; this flag has no secret behind it. It labels an honestly configured Codex as `actor=codex`. AdaptiveGate, FREEZE, `operator_confirm`, and the leash HTTP calls on `:8756` and `:8757` stay as they are.
+
+## HTTP plane
+
+`mcp_http.py` does not use the stdio default. On startup it admits the actor `http` by appending that name to `receipts/stdio-actors` when the roster does not already include it, then constructs `AssuredPlaneHost(actor="http", actor_binding="http_process")`. Receipts from that process say `http`, including denials. `plane.status` reports `actors.binding` as `http_process`.
+
+`http` is not one of the built-in names above. A stdio launch with no flag and no `AGENT_CONTROL_ACTOR` is still `grok`. After the HTTP process has admitted `http`, `--actor http` is a legal stdio name because the roster file says so; that labels a stdio process as `http` only when the operator passes the flag.
