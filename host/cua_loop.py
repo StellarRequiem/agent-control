@@ -186,6 +186,8 @@ class CuaController:
         # V1: layout-first — window geometry always in observe (no blind full-screen coords)
         layout = self._call("desktop.layout", {})
         browser = self._call("browser.status", {})
+        # Multi-tab + multi-window orient (tabs list; no heavy snapshot by default)
+        workspace = self._call("browser.workspace", {"snapshot": False})
         plane = self._call("plane.status", {})
         out = {
             "ok": True,
@@ -193,8 +195,13 @@ class CuaController:
             "desktop": self._unwrap(desktop),
             "layout": self._unwrap(layout),
             "browser": self._unwrap(browser),
+            "workspace": self._unwrap(workspace),
             "plane": self._unwrap(plane),
-            "gui_hint": "prefer desktop.click_window (rel) or browser.* for Chrome; never guess full-screen coords",
+            "gui_hint": (
+                "prefer desktop.click_window (rel) or browser.* for Chrome; "
+                "never guess full-screen coords; "
+                "multi-tab: pass tabId on navigate/snapshot/click; multi-screen: use layout + workspace"
+            ),
             "session": self.status(),
         }
         if self._session:

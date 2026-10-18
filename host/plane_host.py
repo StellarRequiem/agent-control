@@ -592,7 +592,7 @@ class AssuredPlaneHost:
 
     def _plane_status(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         b = http_json(self.browser_base, "/v1/status")
-        d = http_json(self.desktop_base, "/v1/status")
+        d = self.desktop.status()
         med = detect_mediated_shell_config()
         shell_gated = bool(
             med.get("native_bash_deny_configured") and med.get("agent_control_mcp_configured")

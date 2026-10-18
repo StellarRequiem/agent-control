@@ -8,6 +8,16 @@ Priorities: **P0** blocks stronger public claims · **P1** paper/eval quality ·
 
 ---
 
+## Batch-1 additions (2026-08-04 conversation mine)
+
+| ID | Item | Status |
+|----|------|--------|
+| B1 | Hybrid path doc | `docs/HYBRID_PATH.md` |
+| B2 | Force mediated path checklist | `docs/FORCE_MEDIATED_PATH.md` |
+| B3 | Hit table glossary (fixture ≠ detection rate) | agent-soc README + this backlog |
+| B4 | AgenticDefender + dry-run | agent-soc |
+| B5 | Stronger holdout / third-party RT | still open (E1/E2) |
+
 ## Current proof board (live this session)
 
 | ID | Proof | Result | How to re-run |

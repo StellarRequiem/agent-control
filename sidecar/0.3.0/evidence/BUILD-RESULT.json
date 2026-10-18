@@ -1,0 +1,43 @@
+{
+  "version": "0.3.0",
+  "status": "STAGED_CANDIDATE",
+  "installed": false,
+  "loaded": false,
+  "independent_review": false,
+  "runtime_enforcement": "UNKNOWN",
+  "clause_5_fully_satisfied": false,
+  "tested": {
+    "pure_fixture_tests": 74,
+    "passed": 74,
+    "failed": 0,
+    "parsed_new_module_bodies": 13,
+    "node_integration_tests_supplied": 3,
+    "node_integration_tests_run": 0,
+    "live_model_sessions_started": 0,
+    "live_services_stopped": 0
+  },
+  "live_proof": {
+    "scope": "Existing plane status response only",
+    "authorization_id": "894f0cbb-7e31-4e01-8c7c-2b9813c6464d",
+    "execution_id": "794c79b3-a9fe-4c3d-beba-2604a530f443",
+    "chain_position": 654
+  },
+  "missing_controls": [
+    "Host installation and approved Node runner for this package",
+    "Version-specific Codex App Server schema and real-runtime compatibility checks",
+    "Required MCP registration plus externally enforced denial of native/provider/unrelated MCP and direct resource routes",
+    "Protected session/process/socket isolation beyond same-UID permissions",
+    "Independent host evidence issuer and signed observer with complete bypass coverage",
+    "Handler-level cancellation and process/job ownership for running or queued effects",
+    "Independent watchdog for a stopped or blocked supervisor",
+    "Two fresh, isolated model challenge runs with external scoring",
+    "Withheld live/shared policy-service unavailability test remains outstanding"
+  ],
+  "known_scope_limits": [
+    "Halt closes this sidecar's admission; turn interrupt acknowledgement is not physical stop proof",
+    "Owned parent exit does not prove descendant or remote-effect termination",
+    "Attached desktop mode has no parent-runtime interrupt adapter",
+    "Signature validity does not establish truth of host assertions",
+    "No automatic reset or recovery after unresolved outcome"
+  ]
+}

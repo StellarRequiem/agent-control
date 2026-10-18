@@ -24,12 +24,13 @@ Live ceiling today (`plane.status`):
 
 | | |
 |--|--|
-| **Why it hurts** | FREEZE and AdaptiveGate do not see file mutations; largest bypass of “mediated work path.” |
+| **Why it hurts** | FREEZE and AdaptiveGate do not see native file mutations; largest bypass of “mediated work path.” |
 | **Target claim** | “On this host, agent file mutations under allowlisted roots go through AssuredPlaneHost.” |
-| **Bridge options** | **A (product):** Grok `[permission] deny` on native edit tools + MCP `shell.write_file` / `shell.apply_patch` under roots, size/path policy, receipts. **B (soft):** skill/AGENTS force plane writes only (honor system, not hard). **C (hybrid):** deny Write in config when Grok supports pattern; keep soft routing until then. |
-| **Evidence** | Deny native edit live; plane write ALLOW under root; path traversal DENY; FREEZE blocks write; offline + live board items. |
-| **Pri** | **P0** — biggest Grok Build quality jump |
-| **Dependency** | Confirm which tool names Grok permission engine can deny (`Write(*)`, `search_replace`, …). |
+| **Bridge** | **Partial (2026-08-04):** `shell.write_file` + `shell.apply_patch` + FREEZE deny + tests + MCP tools. See `docs/FILE_MUTATION_PLANE.md`. **Remaining:** Grok permission deny on native Write/StrReplace (and Claude soft prefer). |
+| **Evidence** | Offline write gate tests; freeze blocks write; live `file_edit_plane_available` on plane.status after host reload. |
+| **Pri** | **P0** — plane **landed**; native-deny fence still open |
+| **Dependency** | Confirm Grok deny patterns for edit tools (`Write(*)`, `search_replace`, …). |
+| **Operator fence (do not auto-apply)** | Add to `~/.grok/config.toml` permission deny only after smoke that mediated `shell.write_file` covers your edit loop. Patterns to evaluate: `Write(*)`, `search_replace(*)`, `Edit(*)` — exact names must match Build tool schema. **[YOUR CALL]** — wrong deny freezes all agent edits. |
 
 ### G2 — Not every Grok tool gated
 
@@ -47,9 +48,9 @@ Live ceiling today (`plane.status`):
 |--|--|
 | **Why it hurts** | Fixes (receipts flock, unfreeze, named cmds) invisible until reload; wasted recovery time. |
 | **Target claim** | “Session start loads current host code; version/receipt tip visible in plane.status.” |
-| **Bridge** | **Post-restart checklist** (below). Add `plane.status` → `host_code` (git short SHA or pack version + receipts tip). Optional: skill preflight `grok_session.py` prints pack version. |
-| **Evidence** | After cold boot, `plane.status` shows pack v10+ and new tools; offline board green. |
-| **Pri** | **P0** for ops; **P1** for version surface |
+| **Bridge** | **Post-restart checklist** (below). `plane.status` → **`host_code`** (pack version, tool count, host git SHA, pack mtime) + pack hot-reload on mtime. |
+| **Evidence** | Live `plane.status.host_code.pack_version` ≥ 12; offline board green. |
+| **Pri** | **P0** for ops — **surface landed 2026-08-04** (still restart MCP after host code edits) |
 
 ### G4 — Shell/FS depth still thinner than native agent work
 

@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "mount": {
+    "version": 1,
+    "identity": {
+      "actor": "codex",
+      "runtime": "operator-supervised-codex",
+      "instance": "assigned-instance"
+    },
+    "backend": {
+      "command": "/ABSOLUTE/APPROVED/INTERPRETER",
+      "args": [
+        "/ABSOLUTE/APPROVED/RECEIPTED_MCP_ADAPTER"
+      ],
+      "cwd": "/ABSOLUTE/APPROVED/ADAPTER_DIRECTORY"
+    },
+    "state_dir": "/ABSOLUTE/PRIVATE/INSTANCE_STATE",
+    "tools": [
+      {
+        "name": "status",
+        "backend_name": "plane_status",
+        "capability": "read",
+        "description": "Read current operator-plane status.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "receipts",
+        "backend_name": "plane_receipts_status",
+        "capability": "read",
+        "description": "Inspect the receipt chain exposed by the configured operator plane.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    ]
+  },
+  "socket_dir": "/Users/OPERATOR/.sidecar/run-INSTANCE",
+  "controller_public_key": "REPLACE_WITH_OPERATOR_ED25519_PUBLIC_KEY_PEM",
+  "attached_session_id": null,
+  "codex": {
+    "command": "/ABSOLUTE/APPROVED/codex",
+    "cwd": "/ABSOLUTE/CANDIDATE/FIXTURE_ROOT",
+    "model": "EXACT_VERIFIED_MODEL_ID",
+    "env": {
+      "HOME": "/ABSOLUTE/ISOLATED/HOME",
+      "CODEX_HOME": "/ABSOLUTE/ISOLATED/CODEX_HOME",
+      "PATH": "/usr/bin:/bin",
+      "LANG": "C.UTF-8"
+    }
+  }
+}

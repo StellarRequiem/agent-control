@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "purpose": "codex-sidecar-control",
+  "id": "UNIQUE_COMMAND_ID",
+  "boot_id": "EXACT_STATUS_BOOT_ID",
+  "config_sha256": "EXACT_INSTALLED_CONFIG_SHA256",
+  "expires_at_ms": 0,
+  "action": "arm",
+  "params": {
+    "evidence": {
+      "session_id": "EXACT_PREPARED_OR_ATTACHED_SESSION",
+      "runtime_version": "EXTERNALLY_OBSERVED_VERSION",
+      "effective_config_sha256": "SHA256_OF_EFFECTIVE_TOOL_AND_PERMISSION_REPORT",
+      "allowed_receipt_ids": [
+        "ACTUAL_AUTHORIZATION_RECEIPT_ID",
+        "ACTUAL_EXECUTION_RECEIPT_ID"
+      ],
+      "denied_receipt_ids": [
+        "ACTUAL_NATIVE_DENIAL_RECEIPT_ID"
+      ],
+      "native_routes_denied": false,
+      "scope_isolation_verified": false
+    }
+  }
+}

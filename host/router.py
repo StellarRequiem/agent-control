@@ -72,12 +72,21 @@ def route_task(task: str) -> Route:
             "search on x",
             "curate",
             "keyword",
+            "multi-tab",
+            "multi tab",
+            "multiple tabs",
+            "other tab",
+            "workspace",
+            "multi-page",
+            "multi page",
         )
     ):
         return Route(
             "browser",
             "Chrome/web session → browser-leash",
             (
+                "browser.workspace",
+                "browser.tabs",
                 "browser.navigate",
                 "browser.snapshot",
                 "browser.x_article_search",

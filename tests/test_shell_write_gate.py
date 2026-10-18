@@ -140,3 +140,54 @@ def test_write_is_not_in_freeze_allow(tmp_path):
     # shell.write_file must not.
     assert host.call("shell.roots", {})["executed"] is True
     assert host.call("shell.write_file", {"path": str(tmp_path / "x"), "content": "y"})["executed"] is False
+
+
+# ---- apply_patch (mediated StrReplace) ------------------------------------
+
+def test_apply_patch_single_match(tmp_path):
+    sh = ShellHandlers(roots=(tmp_path,))
+    target = tmp_path / "a.txt"
+    target.write_text("alpha beta gamma")
+    out = sh.apply_patch(
+        {"path": str(target), "old_string": "beta", "new_string": "BETA"}
+    )
+    assert out["ok"] is True and out["code"] == "PATCHED"
+    assert target.read_text() == "alpha BETA gamma"
+    assert out["data"]["replacements"] == 1
+
+
+def test_apply_patch_ambiguous_without_replace_all(tmp_path):
+    sh = ShellHandlers(roots=(tmp_path,))
+    target = tmp_path / "a.txt"
+    target.write_text("xx xx")
+    out = sh.apply_patch({"path": str(target), "old_string": "xx", "new_string": "yy"})
+    assert out["ok"] is False and out["code"] == "AMBIGUOUS_MATCH"
+    assert target.read_text() == "xx xx"
+
+
+def test_apply_patch_replace_all(tmp_path):
+    sh = ShellHandlers(roots=(tmp_path,))
+    target = tmp_path / "a.txt"
+    target.write_text("xx xx")
+    out = sh.apply_patch(
+        {
+            "path": str(target),
+            "old_string": "xx",
+            "new_string": "yy",
+            "replace_all": True,
+        }
+    )
+    assert out["ok"] is True and target.read_text() == "yy yy"
+    assert out["data"]["replacements"] == 2
+
+
+def test_freeze_blocks_apply_patch(tmp_path):
+    host = _host(tmp_path, frozen=True)
+    target = tmp_path / "a.txt"
+    target.write_text("keep")
+    out = host.call(
+        "shell.apply_patch",
+        {"path": str(target), "old_string": "keep", "new_string": "gone"},
+    )
+    assert out["executed"] is False
+    assert target.read_text() == "keep"

@@ -22,16 +22,25 @@ DEFAULT_ROOTS = (
     _PKG_ROOT,
     Path.home() / "mcp-assure",
     Path.home() / "agent-control",
+    Path.home() / "OPERATOR_PROTOCOL.md",  # exact bootstrap authority file only
     Path.home() / "desktop-leash",
     Path.home() / "browser-leash",
     Path.home() / "portfolio",
     Path.home() / "ops",
     Path.home() / "agent-soc",
     Path.home() / "Forest-Soul-Forge",
+    Path.home() / "warrant",  # coordinated-disclosure hunt + local PoC sandbox
+    Path.home() / "Documents" / "Codex" / "2026-09-01" / "work-from-security-md-on-origin",
 )
 
 # Named commands only — no free-form argv
 ALLOW_COMMANDS: dict[str, list[str]] = {
+    # Operator-approved offline schema qualification; fixed argv and source pin.
+    "qwen_schema_qualify_v7": ["/usr/bin/env","-i","PATH=/usr/bin:/bin","LANG=C.UTF-8","/Users/llm01/mcp-assure/.venv/bin/python","-I","-B","-c","import hashlib, os, stat, sys\nfrom pathlib import Path\np = Path(\"/Users/llm01/Documents/Codex/2026-09-06/plugin-creator-users-llm01-codex-skills-2/outputs/qwen-batch-evaluator-20261011/qualify_schema_v7.py\")\nexpected = \"5a1ee7b5ad6f90326c9ae374ea1ceb8c3eb7f2eef2258ce717c05ed6916fd67b\"\nif len(sys.argv) != 1 or os.getuid() == 0 or p.resolve(strict=True) != p:\n    raise SystemExit(\"NAMED_QUALIFIER_PREFLIGHT_REFUSED\")\nfd = os.open(p, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)\ntry:\n    before = os.fstat(fd)\n    if not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid() or before.st_nlink != 1 or before.st_mode & 0o022 or before.st_size > 65536:\n        raise SystemExit(\"NAMED_QUALIFIER_METADATA_REFUSED\")\n    source = b\"\"\n    while len(source) < 65536:\n        chunk = os.read(fd, 65536-len(source))\n        if not chunk:\n            break\n        source += chunk\n    after = os.fstat(fd)\n    signature = lambda s:(s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns,s.st_uid,s.st_mode,s.st_nlink)\n    if signature(before) != signature(after) or len(source) != before.st_size:\n        raise SystemExit(\"NAMED_QUALIFIER_CHANGED_DURING_READ\")\nfinally:\n    os.close(fd)\nif hashlib.sha256(source).hexdigest() != expected:\n    raise SystemExit(\"NAMED_QUALIFIER_CHECKSUM_REFUSED\")\nsys.argv = [str(p), \"--self-sha\", expected]\nexec(compile(source, str(p), \"exec\"), {\n    \"__name__\": \"__main__\", \"__file__\": str(p),\n    \"__verified_sha256__\": expected,\n})\n"],
+    # Operator sidecar maintenance: fixed argv, clean environment, pinned package only.
+    "sidecar_status": ["/usr/bin/env","-i","PATH=/usr/bin:/bin","LANG=C.UTF-8","HOME=/Users/llm01","/opt/homebrew/Cellar/node/26.3.0/bin/node","/Users/llm01/agent-control/sidecar-maintenance/1.0.0/maintenance.mjs","status"],
+    "sidecar_test_daily": ["/usr/bin/env","-i","PATH=/usr/bin:/bin","LANG=C.UTF-8","HOME=/Users/llm01","/opt/homebrew/Cellar/node/26.3.0/bin/node","/Users/llm01/agent-control/sidecar-maintenance/1.0.0/maintenance.mjs","daily"],
+    "sidecar_test_weekly": ["/usr/bin/env","-i","PATH=/usr/bin:/bin","LANG=C.UTF-8","HOME=/Users/llm01","/opt/homebrew/Cellar/node/26.3.0/bin/node","/Users/llm01/agent-control/sidecar-maintenance/1.0.0/maintenance.mjs","weekly"],
     "git_status": ["git", "status", "--short"],
     "git_diff_stat": ["git", "diff", "--stat"],
     "git_log": ["git", "log", "-5", "--oneline"],
@@ -42,6 +51,37 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
     "mcp_assure_check": [
         str(Path.home() / "mcp-assure" / ".venv" / "bin" / "mcp-assure"),
         "check",
+    ],
+    # 10.10 probe rail — named argv only (no free-form python3)
+    "probe_validate": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "ops" / "probes" / "validate_result.py"),
+        str(Path.home() / "ops" / "probes" / "results" / "latest.json"),
+    ],
+    "probe_validate_ok": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "ops" / "probes" / "validate_result.py"),
+        str(Path.home() / "ops" / "probes" / "fixtures" / "ok-soc-empty.json"),
+    ],
+    "probe_validate_bad": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "ops" / "probes" / "validate_result.py"),
+        str(Path.home() / "ops" / "probes" / "fixtures" / "bad-apex-greenwash.json"),
+    ],
+    "probe_selftest": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "ops" / "probes" / "selftest.py"),
+    ],
+    "blue_apex_tail": [
+        "tail",
+        "-n",
+        "5",
+        str(Path.home() / "blue-vaccine" / "incidents" / "daily-scan.log"),
+    ],
+    "soc_latest": [
+        "ls",
+        "-1",
+        str(Path.home() / "agent-soc" / "incidents"),
     ],
     "agent_control_smoke": [
         "python3",
@@ -61,17 +101,56 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
         "python3",
         str(Path.home() / "agent-soc" / "hit_table.py"),
     ],
+    # agent-soc verification surface (named only — interpreters not on shell.exec)
+    "agent_soc_pytest": [
+        # system python3 may lack pytest; reuse mcp-assure venv (has pytest)
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        "-m",
+        "pytest",
+        "-q",
+        "--tb=short",
+        str(Path.home() / "agent-soc" / "tests"),
+    ],
+    "agent_soc_agentic_cycle_dry": [
+        "python3",
+        str(Path.home() / "agent-soc" / "cli.py"),
+        "agentic",
+        "cycle",
+        "--dry-run",
+    ],
+    "agent_soc_respond_dry": [
+        "python3",
+        str(Path.home() / "agent-soc" / "cli.py"),
+        "respond",
+        "--dry-run",
+        "--reason",
+        "test",
+    ],
     "agent_control_session": [
         "python3",
         str(Path.home() / "agent-control" / "cli.py"),
         "session",
     ],
     "agent_control_pytest": [
-        "python3",
+        # system python3 may lack pytest; reuse mcp-assure venv (has pytest)
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
         "-m",
         "pytest",
         "-q",
+        "--tb=short",
         str(Path.home() / "agent-control" / "tests"),
+    ],
+    "claude_control_verify": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "claude-control" / "scripts" / "verify_slice.py"),
+    ],
+    "claude_control_pytest": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        "-m",
+        "pytest",
+        "-q",
+        "--tb=short",
+        str(Path.home() / "claude-control" / "tests"),
     ],
     "mcp_assure_pytest": [
         str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
@@ -79,6 +158,281 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
         "pytest",
         "-q",
         str(Path.home() / "mcp-assure" / "tests"),
+    ],
+    # Local site preview (loopback static server for ~/portfolio) — visual pass without file://
+    "portfolio_nav_inject": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "portfolio" / "_nav" / "inject.py"),
+    ],
+    "portfolio_preview_start": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "agent-control" / "scripts" / "portfolio_preview.py"),
+        "start",
+    ],
+    "portfolio_preview_stop": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "agent-control" / "scripts" / "portfolio_preview.py"),
+        "stop",
+    ],
+    "portfolio_preview_status": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "agent-control" / "scripts" / "portfolio_preview.py"),
+        "status",
+    ],
+    # Pages deploy: push portfolio main only (no force). Operator must have approved ship.
+    "portfolio_ship_crown_jewel": [
+        "/bin/bash",
+        str(Path.home() / "portfolio" / "scripts" / "ship_crown_jewel.sh"),
+    ],
+    "portfolio_git_push": [
+        "git",
+        "-C",
+        str(Path.home() / "portfolio"),
+        "push",
+        "origin",
+        "main",
+    ],
+    # session-bus median plane (Grok Build ↔ light clients)
+    "session_bus_status": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "cli.py"),
+        "status",
+    ],
+    "session_bus_token": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "cli.py"),
+        "token",
+    ],
+    "session_bus_prepare_phone": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "prepare_phone_session.py"),
+    ],
+    "session_bus_build_reply": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "build_reply.py"),
+    ],
+    "session_bus_ack_ios": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "ack_last_ios.py"),
+    ],
+    "session_bus_monitor": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "monitor.py"),
+        "--lines",
+        "30",
+    ],
+    "session_bus_monitor_alerts": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "monitor.py"),
+        "--alerts",
+        "--lines",
+        "40",
+    ],
+    "session_bus_sensor_up": [
+        "/bin/bash",
+        str(Path.home() / "session-bus" / "scripts" / "sensor_up.sh"),
+    ],
+    "session_bus_sensor_down": [
+        "/bin/bash",
+        str(Path.home() / "session-bus" / "scripts" / "sensor_down.sh"),
+    ],
+    "session_bus_sensor_status": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "access_sensor.py"),
+        "status",
+        "--window",
+        "86400",
+    ],
+    "session_bus_watch_up": [
+        "/bin/bash",
+        str(Path.home() / "session-bus" / "scripts" / "watch_up.sh"),
+    ],
+    "session_bus_watch_down": [
+        "/bin/bash",
+        str(Path.home() / "session-bus" / "scripts" / "watch_down.sh"),
+    ],
+    "session_bus_rebind_v2": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "rebind_v2_skills.py"),
+    ],
+    "session_bus_watch_restart": [
+        "/bin/bash",
+        str(Path.home() / "session-bus" / "scripts" / "watch_restart.sh"),
+    ],
+    "session_bus_create": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "cli.py"),
+        "create",
+        "--actor",
+        "build",
+        "--label",
+        "agent-control",
+    ],
+    "session_bus_list": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "cli.py"),
+        "list",
+    ],
+    "session_bus_pytest": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        "-m",
+        "pytest",
+        "-q",
+        "--tb=short",
+        str(Path.home() / "session-bus" / "tests"),
+    ],
+    "session_bus_up": [
+        "/bin/bash",
+        str(Path.home() / "session-bus" / "scripts" / "up.sh"),
+    ],
+    "session_bus_smoke": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "smoke_http.py"),
+    ],
+    "session_bus_smoke_v2": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "smoke_v2_propose.py"),
+    ],
+    "session_bus_device_enroll": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "device_enroll.py"),
+    ],
+    # Alias: operator language is "session bind" (not rewind)
+    "session_bus_bind": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "device_enroll.py"),
+    ],
+    "session_bus_totp_setup": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "totp_setup.py"),
+        "--open",
+    ],
+    "session_bus_mail_status": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "mail_status.py"),
+    ],
+    "session_bus_mail_diagnose": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "mail_diagnose.py"),
+    ],
+    "session_bus_mcp_up": [
+        "/bin/bash",
+        str(Path.home() / "session-bus" / "scripts" / "mcp_up.sh"),
+    ],
+    "session_bus_mcp_restart": [
+        "/bin/bash",
+        str(Path.home() / "session-bus" / "scripts" / "mcp_restart.sh"),
+    ],
+    "session_bus_mcp_tunnel": [
+        "/bin/bash",
+        str(Path.home() / "session-bus" / "scripts" / "mcp_tunnel.sh"),
+    ],
+    "session_bus_mcp_smoke": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "smoke_mcp.py"),
+    ],
+    "session_bus_smoke_work": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "smoke_session_work.py"),
+    ],
+    "session_bus_mcp_public_smoke": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "smoke_mcp_public.py"),
+    ],
+    "session_bus_rewind": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "session_rewind.py"),
+    ],
+    "session_bus_rewind_full": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "session_rewind.py"),
+        "full",
+    ],
+    "tailscale_ip": [
+        "/bin/bash",
+        str(Path.home() / "session-bus" / "scripts" / "tailscale_ip.sh"),
+    ],
+    "session_bus_up_tailscale": [
+        "/bin/bash",
+        str(Path.home() / "session-bus" / "scripts" / "restart_tailscale.sh"),
+    ],
+    "session_bus_resolve_bind": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "session-bus" / "scripts" / "resolve_bind.py"),
+    ],
+    # Maw Detect (T1) — local blue-team; read-only
+    "maw_pytest": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        "-m",
+        "pytest",
+        "-q",
+        "--tb=short",
+        str(Path.home() / "maw" / "tests"),
+    ],
+    "maw_detect_smoke": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "maw" / "scripts" / "detect_smoke.py"),
+    ],
+    "maw_install_gate_status": [
+        "/bin/bash",
+        str(Path.home() / "maw" / "scripts" / "run_install_gate.sh"),
+        "status",
+    ],
+    "maw_install_gate_clear": [
+        "/bin/bash",
+        str(Path.home() / "maw" / "scripts" / "run_install_gate.sh"),
+        "clear",
+        "--operator-confirm",
+    ],
+
+    # Bridge / leash health (absolute paths — thin PATH safe)
+    "browser_leash_status": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "browser-leash" / "bridge" / "client.py"),
+        "status",
+    ],
+    "browser_leash_restart": [
+        "/bin/bash",
+        str(Path.home() / "browser-leash" / "scripts" / "restart_bridge.sh"),
+    ],
+    "desktop_leash_restart": [
+        "/bin/bash",
+        str(Path.home() / "desktop-leash" / "scripts" / "restart_bridge.sh"),
+    ],
+    "browser_leash_pytest": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        "-m",
+        "pytest",
+        "-q",
+        "--tb=short",
+        str(Path.home() / "browser-leash" / "tests"),
+    ],
+    "open_grok_connectors": [
+        "open",
+        "-a",
+        "Google Chrome",
+        "https://grok.com/connectors",
+    ],
+    "open_chrome_extensions": [
+        "open",
+        "-a",
+        "Google Chrome",
+        "chrome://extensions",
+    ],
+    "desktop_leash_status": [
+        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
+        str(Path.home() / "desktop-leash" / "bridge" / "client.py"),
+        "status",
+    ],
+    "agent_control_stack": [
+        "python3",
+        str(Path.home() / "agent-control" / "cli.py"),
+        "stack",
+    ],
+    # warrant SEQ2 — local fastapi_mcp PoC matrix (TestClient / 127.0.0.1 only)
+    "warrant_fastapi_mcp_poc": [
+        str(Path.home() / "warrant" / ".venv" / "bin" / "python"),
+        str(Path.home() / "warrant" / "bughunt" / "sandbox" / "fastapi-mcp-poc" / "run_all.py"),
     ],
 }
 
@@ -293,6 +647,70 @@ class ShellHandlers:
             "data": {"path": str(resolved), "bytes": len(content.encode("utf-8")), "mode": mode},
         }
 
+    def apply_patch(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Single-file str replace under an allowed root (mediated StrReplace analog).
+
+        Requires exact one match of old_string unless replace_all=true.
+        Same path/secret/size fences as write_file; blocked under FREEZE (not freeze_allow).
+        """
+        resolved = self._resolve_under_root(str(args.get("path") or ""))
+        if isinstance(resolved, dict):
+            return resolved
+        if not resolved.is_file():
+            return {"ok": False, "code": "NOT_FILE", "detail": str(resolved)}
+        name = resolved.name.lower()
+        if any(x in name for x in (".pem", ".key", "id_rsa", "credentials", ".env", "secret")):
+            return {
+                "ok": False,
+                "code": "SECRET_FILENAME",
+                "detail": "path looks secret-shaped — refused by shell gate",
+            }
+        old = args.get("old_string")
+        new = args.get("new_string")
+        if not isinstance(old, str) or not isinstance(new, str):
+            return {
+                "ok": False,
+                "code": "PATCH_REQUIRED",
+                "detail": "old_string and new_string must be strings",
+            }
+        if old == "":
+            return {"ok": False, "code": "EMPTY_OLD", "detail": "old_string must be non-empty"}
+        try:
+            text = resolved.read_text(encoding="utf-8")
+        except OSError as e:
+            return {"ok": False, "code": "READ_FAIL", "detail": str(e)}
+        count = text.count(old)
+        replace_all = bool(args.get("replace_all"))
+        if count == 0:
+            return {"ok": False, "code": "NO_MATCH", "detail": "old_string not found"}
+        if count > 1 and not replace_all:
+            return {
+                "ok": False,
+                "code": "AMBIGUOUS_MATCH",
+                "detail": f"old_string matches {count} times — set replace_all=true or narrow context",
+            }
+        if replace_all:
+            out_text = text.replace(old, new)
+            n = count
+        else:
+            out_text = text.replace(old, new, 1)
+            n = 1
+        if len(out_text.encode("utf-8")) > MAX_WRITE_BYTES:
+            return {"ok": False, "code": "CONTENT_TOO_LARGE", "detail": f"max {MAX_WRITE_BYTES} bytes"}
+        try:
+            resolved.write_text(out_text, encoding="utf-8")
+        except OSError as e:
+            return {"ok": False, "code": "WRITE_FAIL", "detail": str(e)}
+        return {
+            "ok": True,
+            "code": "PATCHED",
+            "data": {
+                "path": str(resolved),
+                "replacements": n,
+                "bytes": len(out_text.encode("utf-8")),
+            },
+        }
+
     def stat(self, args: dict[str, Any]) -> dict[str, Any]:
         resolved = self._resolve_under_root(str(args.get("path") or ""))
         if isinstance(resolved, dict):
@@ -455,6 +873,8 @@ class ShellHandlers:
     def run(self, args: dict[str, Any]) -> dict[str, Any]:
         """Run a *named* allowlisted command only."""
         name = str(args.get("name") or "").strip()
+        if name == "qwen_schema_qualify_v7" and (set(args) != {"name"} or args.get("name") != name):
+            return {"ok": False, "code": "FIXED_JOB_ARGUMENTS_REQUIRED"}
         if name not in ALLOW_COMMANDS:
             return {
                 "ok": False,
@@ -480,14 +900,30 @@ class ShellHandlers:
                         break
             if name.startswith("mcp_assure"):
                 cwd = str(Path.home() / "mcp-assure")
+            if name.startswith("warrant_"):
+                cwd = str(Path.home() / "warrant")
 
         cmd = list(ALLOW_COMMANDS[name])
         # Skip if mcp-assure binary missing
         if name.startswith("mcp_assure") and not Path(cmd[0]).exists():
             cmd = ["python3", "-m", "mcp_assure", cmd[-1]]
             env = {**os.environ, "PYTHONPATH": str(Path.home() / "mcp-assure")}
+        elif name == "warrant_fastapi_mcp_poc":
+            # Prefer warrant venv; fall back to system python3 if missing
+            if not Path(cmd[0]).exists():
+                cmd[0] = "python3"
+            hunt = str(Path.home() / "warrant" / "hunts" / "fastapi_mcp")
+            warrant = str(Path.home() / "warrant")
+            pp = os.pathsep.join([hunt, warrant, os.environ.get("PYTHONPATH", "")]).strip(
+                os.pathsep
+            )
+            env = {**os.environ, "PYTHONPATH": pp}
+            cwd = str(Path.home() / "warrant" / "bughunt" / "sandbox" / "fastapi-mcp-poc")
         else:
             env = None
+
+        # PoC matrix may bootstrap a throwaway venv — allow longer runtime
+        timeout = 300 if name == "warrant_fastapi_mcp_poc" else 120
 
         try:
             p = subprocess.run(
@@ -495,7 +931,7 @@ class ShellHandlers:
                 cwd=cwd,
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=timeout,
                 env=env,
             )
         except subprocess.TimeoutExpired:

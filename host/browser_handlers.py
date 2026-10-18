@@ -45,6 +45,25 @@ def _score_card(card: dict[str, Any], tokens: list[str]) -> float:
     return round(score, 3)
 
 
+def _coerce_tab_id(args: dict[str, Any] | None) -> int | None:
+    """Accept tabId / tab_id / id from agent args (multi-tab targeting)."""
+    if not args:
+        return None
+    for key in ("tabId", "tab_id", "id"):
+        if args.get(key) is not None and key != "id":
+            try:
+                return int(args[key])
+            except (TypeError, ValueError):
+                return None
+    # bare "id" only when clearly a tab id (numeric), not a selector id
+    if args.get("id") is not None and args.get("selector") is None:
+        try:
+            return int(args["id"])
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 class BrowserHandlers:
     def __init__(self, base: str = BROWSER) -> None:
         self.base = base
@@ -54,13 +73,23 @@ class BrowserHandlers:
         body = {"action": action, **extra}
         return http_json(self.base, "/v1/action", body)
 
+    def _with_tab(self, args: dict[str, Any] | None, **extra: Any) -> dict[str, Any]:
+        body = dict(extra)
+        tid = _coerce_tab_id(args)
+        if tid is not None:
+            body["tabId"] = tid
+        return body
+
     def status(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         return http_json(self.base, "/v1/status")
 
     def navigate(self, args: dict[str, Any]) -> dict[str, Any]:
         body: dict[str, Any] = {"url": args["url"]}
-        if args.get("tabId") is not None:
-            body["tabId"] = int(args["tabId"])
+        tid = _coerce_tab_id(args)
+        if tid is not None:
+            body["tabId"] = tid
+        if args.get("active") is not None:
+            body["active"] = bool(args["active"])
         return self._action("tab.navigate", **body)
 
     def tabs(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -78,78 +107,266 @@ class BrowserHandlers:
     def tab_close(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
         body: dict[str, Any] = {}
-        if args.get("tabId") is not None:
-            body["tabId"] = int(args["tabId"])
-        elif args.get("id") is not None:
-            body["tabId"] = int(args["id"])
+        tid = _coerce_tab_id(args)
+        if tid is not None:
+            body["tabId"] = tid
         return self._action("tab.close", **body)
 
     def tab_activate(self, args: dict[str, Any]) -> dict[str, Any]:
-        tid = args.get("tabId") if args.get("tabId") is not None else args.get("id")
-        return self._action("tab.activate", tabId=int(tid))
+        tid = _coerce_tab_id(args)
+        if tid is None:
+            return {"ok": False, "code": "TAB_ID_REQUIRED", "detail": "tabId required for tab_activate"}
+        return self._action("tab.activate", tabId=tid)
 
-    def snapshot(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._action("page.snapshot")
+    def page_info(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Active or targeted tab url/title (multi-tab orient)."""
+        return self._action("page.info", **self._with_tab(args))
+
+    def snapshot(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Visible text; pass tabId to read a non-active tab without activating."""
+        return self._action("page.snapshot", **self._with_tab(args))
 
     def screenshot(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Capture visible tab PNG. Prefer `out` path — dataUrl is large; write + strip when set."""
+        import base64
+        import re
+        from pathlib import Path
+
         args = args or {}
-        out = self._action("page.screenshot")
+        # captureVisibleTab is active-window only; activate first if tabId given
+        tid = _coerce_tab_id(args)
+        body: dict[str, Any] = {}
+        if tid is not None:
+            act = self._action("tab.activate", tabId=tid)
+            if not act.get("ok"):
+                return {
+                    "ok": False,
+                    "code": "SCREENSHOT_ACTIVATE_FAIL",
+                    "detail": "screenshot needs active tab; activate failed",
+                    "activate": act,
+                }
+            body["tabId"] = tid
+        out = self._action("page.screenshot", **body)
         path = (args.get("out") or "").strip()
-        if path and out.get("ok") and out.get("data", {}).get("dataUrl"):
-            # optional write left to caller; return path hint
-            out.setdefault("data", {})["out_hint"] = path
+        data = out.get("data") if isinstance(out.get("data"), dict) else {}
+        data_url = (data or {}).get("dataUrl") or ""
+        if path and out.get("ok") and data_url:
+            # write PNG under allowlisted capture roots (ops / agent-control / /tmp)
+            p = Path(path).expanduser()
+            try:
+                p = p.resolve()
+            except OSError:
+                return {
+                    "ok": False,
+                    "code": "SCREENSHOT_PATH",
+                    "detail": f"bad out path: {path}",
+                }
+            allowed_parents = (
+                Path.home() / "ops",
+                Path.home() / "agent-control",
+                Path.home() / "browser-leash",
+                Path("/tmp"),
+                Path("/private/tmp"),
+            )
+            if not any(
+                str(p).startswith(str(root.resolve()) + "/")
+                or str(p).startswith(str(root.resolve()))
+                for root in allowed_parents
+                if root.exists() or str(root).startswith("/tmp") or str(root).startswith("/private")
+            ):
+                # also allow explicit /tmp even if exists check is weird on mac
+                if not (str(p).startswith("/tmp/") or str(p).startswith("/private/tmp/")):
+                    return {
+                        "ok": False,
+                        "code": "SCREENSHOT_PATH_DENIED",
+                        "detail": "out must be under ~/ops, ~/agent-control, ~/browser-leash, or /tmp",
+                        "path": str(p),
+                    }
+            m = re.match(r"^data:image/png;base64,(.+)$", data_url, re.DOTALL)
+            if not m:
+                return {
+                    "ok": False,
+                    "code": "SCREENSHOT_BAD_DATAURL",
+                    "detail": "expected data:image/png;base64,...",
+                }
+            try:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                raw = base64.b64decode(m.group(1), validate=False)
+                if len(raw) < 32:
+                    return {"ok": False, "code": "SCREENSHOT_EMPTY", "detail": "decoded PNG too small"}
+                p.write_bytes(raw)
+            except Exception as e:  # noqa: BLE001 — surface write errors to agent
+                return {
+                    "ok": False,
+                    "code": "SCREENSHOT_WRITE_FAIL",
+                    "detail": str(e)[:300],
+                    "path": str(p),
+                }
+            # strip huge payload from result (agents re-read via path / read_file image)
+            slim = dict(out)
+            slim_data = {k: v for k, v in (data or {}).items() if k != "dataUrl"}
+            slim_data["path"] = str(p)
+            slim_data["bytes"] = len(raw)
+            slim_data["mime"] = "image/png"
+            slim["data"] = slim_data
+            if tid is not None:
+                slim["data"]["tabId"] = tid
+            return slim
+        if path and out.get("ok") and not data_url:
+            # Extension <0.5.2 stripped dataUrl in report() — surface actionable hint
+            out.setdefault("data", {})
+            if isinstance(out["data"], dict):
+                out["data"]["out_requested"] = path
+                out["data"]["hint"] = (
+                    "dataUrl missing — Soft Reload Browser Leash to 0.5.2+ so screenshots "
+                    "deliver PNG for disk write"
+                )
+        if tid is not None and out.get("ok"):
+            out.setdefault("data", {})["tabId"] = tid
         return out
 
     def click(self, args: dict[str, Any]) -> dict[str, Any]:
-        return self._action("page.click", selector=args["selector"])
+        body = self._with_tab(args, selector=args["selector"])
+        return self._action("page.click", **body)
 
     def type(self, args: dict[str, Any]) -> dict[str, Any]:
         body: dict[str, Any] = {"action": "page.type", "text": args["text"]}
         if args.get("selector"):
             body["selector"] = args["selector"]
+        tid = _coerce_tab_id(args)
+        if tid is not None:
+            body["tabId"] = tid
         return http_json(self.base, "/v1/action", body)
 
     def scroll(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
-        return self._action(
-            "page.scroll",
+        body = self._with_tab(
+            args,
             dy=int(args.get("dy", 600)),
             dx=int(args.get("dx", 0)),
         )
+        return self._action("page.scroll", **body)
 
     def wait(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
         body: dict[str, Any] = {"action": "page.wait"}
-        for k in ("mode", "selector", "ms", "timeout_ms", "timeout", "tabId"):
+        for k in ("mode", "selector", "ms", "timeout_ms", "timeout"):
             if args.get(k) is not None:
                 body[k] = args[k]
+        tid = _coerce_tab_id(args)
+        if tid is not None:
+            body["tabId"] = tid
         return http_json(self.base, "/v1/action", body, timeout=float(args.get("timeout_ms") or args.get("timeout") or 20) + 5)
 
     def find(self, args: dict[str, Any]) -> dict[str, Any]:
-        body: dict[str, Any] = {"selector": args["selector"]}
+        body = self._with_tab(args, selector=args["selector"])
         if args.get("limit") is not None:
             body["limit"] = int(args["limit"])
         return self._action("page.find", **body)
 
     def links(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
-        body: dict[str, Any] = {}
+        body = self._with_tab(args)
         if args.get("limit") is not None:
             body["limit"] = int(args["limit"])
         return self._action("page.links", **body)
 
-    def back(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._action("page.back")
+    def back(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self._action("page.back", **self._with_tab(args))
 
-    def forward(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._action("page.forward")
+    def forward(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self._action("page.forward", **self._with_tab(args))
 
     def reload(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
-        body: dict[str, Any] = {}
+        body = self._with_tab(args)
         if args.get("bypass_cache"):
             body["bypass_cache"] = True
         return self._action("page.reload", **body)
+
+    def workspace(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Multi-tab orient: list tabs, optional page.info + short snapshot of one tab.
+
+        Args:
+          tabId: prefer this tab for info/snapshot (else active)
+          snapshot: bool (default true) — include text preview
+          snapshot_chars: int cap (default 2500)
+          match: substring to pick tab by url/title when tabId omitted
+        """
+        args = args or {}
+        tabs_out = self.tabs()
+        tabs_data = tabs_out.get("data") if isinstance(tabs_out, dict) else None
+        tab_list: list[dict[str, Any]] = []
+        if isinstance(tabs_data, dict):
+            raw = tabs_data.get("tabs") or tabs_data.get("items") or []
+            if isinstance(raw, list):
+                tab_list = [t for t in raw if isinstance(t, dict)]
+        elif isinstance(tabs_data, list):
+            tab_list = [t for t in tabs_data if isinstance(t, dict)]
+
+        match = str(args.get("match") or "").strip().lower()
+        tid = _coerce_tab_id(args)
+        chosen: dict[str, Any] | None = None
+        if tid is not None:
+            for t in tab_list:
+                if int(t.get("id") or t.get("tabId") or -1) == tid:
+                    chosen = t
+                    break
+        elif match:
+            for t in tab_list:
+                blob = f"{t.get('url') or ''} {t.get('title') or ''}".lower()
+                if match in blob:
+                    chosen = t
+                    tid = int(t.get("id") or t.get("tabId") or 0) or None
+                    break
+
+        info = self.page_info({"tabId": tid} if tid is not None else {})
+        snap_preview = None
+        do_snap = args.get("snapshot", True)
+        if do_snap is True or do_snap == "true" or do_snap == 1:
+            snap = self.snapshot({"tabId": tid} if tid is not None else {})
+            text = ""
+            if isinstance(snap.get("data"), dict):
+                text = str(snap["data"].get("text") or snap["data"].get("body") or "")
+            elif snap.get("text"):
+                text = str(snap.get("text") or "")
+            # Honor explicit snapshot_chars; default 2500; hard max 12000; floor 40
+            raw_cap = args.get("snapshot_chars")
+            cap = int(raw_cap) if raw_cap is not None else 2500
+            cap = max(40, min(cap, 12000))
+            snap_preview = {
+                "ok": snap.get("ok"),
+                "code": snap.get("code"),
+                "chars": len(text),
+                "text_preview": text[:cap],
+                "tabId": tid,
+            }
+
+        return {
+            "ok": True,
+            "code": "WORKSPACE",
+            "tab_count": len(tab_list),
+            "tabs": [
+                {
+                    "id": t.get("id") or t.get("tabId"),
+                    "url": t.get("url"),
+                    "title": t.get("title"),
+                    "active": t.get("active"),
+                }
+                for t in tab_list[:40]
+            ],
+            "focus": {
+                "tabId": tid,
+                "matched": chosen,
+                "page_info": info,
+            },
+            "snapshot": snap_preview,
+            "hint": (
+                "Pass tabId on navigate/snapshot/click/scroll/find/links to work multi-tab "
+                "without losing other pages. Prefer tab_create for parallel research."
+            ),
+            "claim": "multi-tab orient under leash — not multi-display OS control",
+        }
 
     def x_article_read(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         """Fetch full X article / status / thread body (T1 observe — arm required)."""

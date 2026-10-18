@@ -1,0 +1,10 @@
+import {SafetySupervisor} from "../lib/supervisor.mjs";
+import {CodexSessions} from "../lib/codex-sessions.mjs";
+import {SerialAudit,guardedBackend,candidateView} from "../lib/bridge.mjs";
+import {Controller,validateControlPayload} from "../lib/controller.mjs";
+import {runTests} from "./logic-tests.mjs";
+import {runIntegrationTests} from "./bridge-tests.mjs";
+const api={SafetySupervisor,CodexSessions,SerialAudit,guardedBackend,candidateView,Controller,validateControlPayload};
+const results=[await runTests(api),await runIntegrationTests(api)];
+process.stdout.write(JSON.stringify(results,null,2)+"\n");
+if(results.some(r=>r.failed))process.exitCode=1;

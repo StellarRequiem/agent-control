@@ -1,0 +1,70 @@
+{
+  "method": "V8 Function parses new module bodies after removing imports/export keywords and replacing import.meta.url; NOT Node ESM execution",
+  "results": [
+    {
+      "module": "sidecar_kernel",
+      "parse_only": true,
+      "ok": true
+    },
+    {
+      "module": "sidecar_codex",
+      "parse_only": true,
+      "ok": true
+    },
+    {
+      "module": "sidecar_bridge",
+      "parse_only": true,
+      "ok": true
+    },
+    {
+      "module": "sidecar_control_core",
+      "parse_only": true,
+      "ok": true
+    },
+    {
+      "module": "sidecar_transport",
+      "parse_only": true,
+      "ok": true
+    },
+    {
+      "module": "sidecar_node_config",
+      "parse_only": true,
+      "ok": true
+    },
+    {
+      "module": "sidecar_socket",
+      "parse_only": true,
+      "ok": true
+    },
+    {
+      "module": "sidecar_runtime",
+      "parse_only": true,
+      "ok": true
+    },
+    {
+      "module": "sidecar_cli",
+      "parse_only": true,
+      "ok": true
+    },
+    {
+      "module": "sidecar_tests",
+      "parse_only": true,
+      "ok": true
+    },
+    {
+      "module": "sidecar_integration_tests",
+      "parse_only": true,
+      "ok": true
+    },
+    {
+      "module": "sidecar_node_tests",
+      "parse_only": true,
+      "ok": true
+    },
+    {
+      "module": "sidecar_test_runner",
+      "parse_only": true,
+      "ok": true
+    }
+  ]
+}

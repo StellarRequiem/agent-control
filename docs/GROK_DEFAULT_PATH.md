@@ -1,6 +1,7 @@
 # Grok default path — V1 ambient under leash
 
-**Pursuit:** `~/ops/CONTROL_STACK_V1_PURSUIT.md` · **SOP:** `docs/V1.md`
+**Pursuit:** `~/ops/CONTROL_STACK_V1_PURSUIT.md` · **SOP:** `docs/V1.md`  
+**Parity matrix:** `docs/GROK_CLAUDE_CODEX_PARITY.md` (Claude/Codex work-surface match)
 
 **Default operating path for plane / GUI / high-blast work on this host.**
 
@@ -9,7 +10,11 @@
 2. agent-soc status                     (posture)
 3. agent-control plane.status / stack
 4. route task                           (plane.route)
-5. if multi-step GUI:  cua.start → observe (incl. layout) → step* → stop
+5. if multi-step GUI:  cua.start → observe (layout + browser.workspace tabs) → step* → stop
+   multi-tab: pin tabId via browser.workspace; multi-screen: desktop.layout + click_window
+   see docs/MULTI_SURFACE_NAVIGATION.md
+6. file edits under plane roots: prefer shell.write_file / shell.apply_patch
+   (native Write still exists until permission deny — see docs/FILE_MUTATION_PLANE.md)
 6. browser.* / desktop.* via agent-control (not raw leash unless debug)
 7. high-blast: never invent operator_confirm
 8. end of day: cli.py down (+ optional agent-soc watch stop)
@@ -32,6 +37,19 @@ python3 ~/agent-control/cli.py call desktop.click_window --args-json '{"app":"Go
 ```
 
 See `~/desktop-leash/docs/LAYOUT_CONTROL.md`.
+
+## Local site preview + browser shot (Grok parity path)
+
+```bash
+# loopback static server for ~/portfolio WIP (no file://)
+python3 ~/agent-control/cli.py call shell.run --args-json '{"name":"portfolio_preview_start"}'
+# MCP: shell_run name=portfolio_preview_start
+
+# after Soft Reload Browser Leash → 0.5.1 + ARM:
+python3 ~/agent-control/cli.py call browser.navigate --args-json '{"url":"http://127.0.0.1:8765/"}'
+python3 ~/agent-control/cli.py call browser.screenshot \
+  --args-json '{"out":"/Users/llm01/ops/awareness/audits/preview-home.png"}'
+```
 
 ## Commands (copy-paste)
 
