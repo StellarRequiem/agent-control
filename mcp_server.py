@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
-"""MCP server: expose AssuredPlaneHost tools to Grok (mediated ambient path).
+"""MCP server: expose AssuredPlaneHost tools over stdio (mediated ambient path).
 
 All tool calls go through AdaptiveGate → handlers → leashes/shell.
 Native run_terminal_cmd remains a *runtime* concern — deny it via Grok
 permissions (see docs/MEDIATED_AMBIENT.md) so the model must use these MCP tools.
 
+The process actor is fixed at startup and stamped on every receipt. Default
+is grok. Codex (and any other launcher) passes ``--actor``; see
+docs/STDIO_ACTOR.md. A JSON ``actor`` field on a tool call is ignored.
+
 Run (stdio)::
 
     ~/mcp-assure/.venv/bin/python ~/agent-control/mcp_server.py
+    ~/mcp-assure/.venv/bin/python ~/agent-control/mcp_server.py --actor codex
 
-Config (~/.grok/config.toml)::
+Config (~/.grok/config.toml) — omit ``--actor`` to keep grok::
 
     [mcp_servers.agent_control]
     command = "/Users/llm01/mcp-assure/.venv/bin/python"
@@ -31,6 +36,7 @@ sys.path.insert(0, str(Path.home() / "mcp-assure"))
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 
 from host.plane_host import AssuredPlaneHost  # noqa: E402
+from host.stdio_actor import resolve_stdio_actor  # noqa: E402
 
 mcp = FastMCP(
     "agent-control",
@@ -42,12 +48,14 @@ mcp = FastMCP(
 )
 
 _host: AssuredPlaneHost | None = None
+# Replaced in main() before the stdio transport starts. Tool handlers are lazy.
+_process_actor = "grok"
 
 
 def host() -> AssuredPlaneHost:
     global _host
     if _host is None:
-        _host = AssuredPlaneHost()
+        _host = AssuredPlaneHost(actor=_process_actor)
     return _host
 
 
@@ -333,7 +341,10 @@ def plane_receipts_rotate(force: bool = False) -> dict[str, Any]:
     return _call("plane.receipts_rotate", {"force": force})
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    global _process_actor
+    # Resolve before the transport so an unknown actor exits and never serves.
+    _process_actor = resolve_stdio_actor(argv)
     mcp.run(transport="stdio")
 
 
