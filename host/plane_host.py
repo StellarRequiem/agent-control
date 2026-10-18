@@ -256,8 +256,12 @@ class AssuredPlaneHost:
                 "plane.receipts_rotate",
             }
         )
-        # chain_repair_allow needs mcp-assure with claim-ladder receipts work;
-        # tolerate older PyPI installs in CI until that release is published.
+        # chain_repair_allow needs a newer mcp-assure than the 0.3.2 CI installs.
+        # That release rejects the kwarg and then denies every tool with
+        # CHAIN_BROKEN, before the catalog, once verify_file fails. call() still
+        # sends the repair tools through the dispatcher; it only skips the
+        # receipt append that would chain off the poison tip.
+        self._engine_chain_repair = True
         try:
             engine = AssureEngine(
                 load_local_pack(),
@@ -267,6 +271,7 @@ class AssuredPlaneHost:
                 chain_repair_allow=chain_repair,
             )
         except TypeError:
+            self._engine_chain_repair = False
             engine = AssureEngine(
                 load_local_pack(),
                 receipts_path=str(receipts_path),
@@ -528,7 +533,62 @@ class AssuredPlaneHost:
 
     def call(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         self._maybe_reload_pack()
+        if self._chain_repair_bypass(name):
+            return self._call_chain_repair(name, arguments)
         return self._dispatcher.call_tool(self._bound_call(name, arguments))
+
+    def _chain_repair_bypass(self, name: str) -> bool:
+        """True when a repair tool must not append onto a broken receipt file.
+
+        An intact chain, a missing file, and every other tool stay on the
+        normal gate, receipts included. A freeze still applies: a repair tool
+        that is not on the freeze allowlist is left to the gate's FREEZE deny.
+        """
+        if name not in ("plane.receipts_status", "plane.receipts_rotate"):
+            return False
+        engine = self._dispatcher.engine
+        freeze = engine.freeze_path
+        if freeze and Path(freeze).is_file() and name not in engine.freeze_allow:
+            return False
+        path = Path(self.receipts_path)
+        if not path.is_file():
+            return False
+        from mcp_assure.receipts import ReceiptChain
+
+        ok, _msg = ReceiptChain.verify_file(str(path))
+        return not ok
+
+    def _call_chain_repair(self, name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
+        """Authorize through the dispatcher, and do not append onto the poison file.
+
+        Catalog, argument, dry_run_only, and AdaptiveGate checks still decide.
+        Only ALLOW reaches the handler. The broken file cannot take the
+        decision receipt: an engine without chain_repair_allow returns
+        CHAIN_BROKEN before those checks and appends that deny with the poison
+        tip, and an engine with the hook lets the tool through and then appends
+        the later decision the same way. Skip that append. On an engine with no
+        repair hook, also skip the chain short-circuit so the other checks run.
+        """
+        engine = self._dispatcher.engine
+        previous_require = engine.require_intact_chain
+        if not self._engine_chain_repair:
+            engine.require_intact_chain = False
+        chain = engine.chain
+        original_append = chain.append
+
+        def _skip_broken_chain_append(**_kwargs: Any) -> None:
+            return None
+
+        chain.append = _skip_broken_chain_append  # type: ignore[method-assign]
+        try:
+            return self._dispatcher.call_tool(self._bound_call(name, arguments))
+        finally:
+            engine.require_intact_chain = previous_require
+            # Rotate replaces engine.chain after it archives. The replacement
+            # must keep a real append; restoring onto it would silence the
+            # next intact-chain receipt.
+            if engine.chain is chain:
+                chain.append = original_append
 
     def authorize_only(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         self._maybe_reload_pack()
@@ -581,11 +641,78 @@ class AssuredPlaneHost:
         from mcp_assure.receipts import ReceiptChain
 
         force = bool((args or {}).get("force"))
-        out = ReceiptChain.rotate_if_broken(str(self.receipts_path), force=force)
+        rotate = getattr(ReceiptChain, "rotate_if_broken", None)
+        if callable(rotate):
+            out = rotate(str(self.receipts_path), force=force)
+            if not isinstance(out, dict):
+                out = {
+                    "ok": False,
+                    "code": "ROTATE_FAILED",
+                    "detail": "rotate_if_broken did not return an object",
+                }
+        else:
+            out = self._rotate_receipt_file(force=force)
+        if out.get("code") in ("ROTATED", "EMPTY"):
+            # The file on disk is a new chain. The engine object still holds the
+            # previous tip (the poison hash, or the receipt just archived), and
+            # the next append would fail verify_file if that tip were reused.
+            self._reset_receipt_chain()
+        # ReceiptChain.rotate_if_broken reports "archive"; the host helper
+        # reports "archived". Callers see one key either way.
+        if not out.get("archived") and out.get("archive"):
+            out["archived"] = out["archive"]
         out["claim"] = (
             "rotates host receipt log only; does not erase leash history or SOC incidents"
         )
         return out
+
+    def _rotate_receipt_file(self, *, force: bool) -> dict[str, Any]:
+        """Archive a broken chain when ReceiptChain has no rotate_if_broken.
+
+        An empty replacement verifies as zero receipts. An intact file is left
+        in place unless force is set.
+        """
+        from datetime import datetime, timezone
+
+        from mcp_assure.receipts import ReceiptChain
+
+        path = Path(self.receipts_path)
+        if not path.is_file():
+            return {
+                "ok": True,
+                "code": "EMPTY",
+                "path": str(path),
+                "detail": "no receipt file to rotate",
+            }
+        ok, msg = ReceiptChain.verify_file(str(path))
+        if ok and not force:
+            return {
+                "ok": True,
+                "code": "INTACT",
+                "path": str(path),
+                "intact": True,
+                "detail": msg,
+            }
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        archive = path.with_name(f"{path.name}.{stamp}.broken")
+        n = 0
+        while archive.exists():
+            n += 1
+            archive = path.with_name(f"{path.name}.{stamp}.{n}.broken")
+        path.replace(archive)
+        path.write_text("", encoding="utf-8")
+        return {
+            "ok": True,
+            "code": "ROTATED",
+            "path": str(path),
+            "archived": str(archive),
+            "detail": msg,
+        }
+
+    def _reset_receipt_chain(self) -> None:
+        from mcp_assure.receipts import ReceiptChain
+
+        self._dispatcher.engine.chain = ReceiptChain(str(self.receipts_path))
 
     def _detect_mediated_shell_config(self) -> dict[str, Any]:
         return detect_mediated_shell_config()

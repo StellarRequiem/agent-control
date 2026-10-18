@@ -135,6 +135,12 @@ def shell_read_file(path: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+def shell_stat(path: str) -> dict[str, Any]:
+    """Stat a path under allowed roots (size, mtime, file or directory)."""
+    return _call("shell.stat", {"path": path})
+
+
+@mcp.tool()
 def shell_write_file(path: str, content: str, mode: str = "overwrite") -> dict[str, Any]:
     """Write a file under allowed roots (mediated edit path; blocked under FREEZE)."""
     return _call("shell.write_file", {"path": path, "content": content, "mode": mode})
@@ -241,6 +247,12 @@ def browser_wait(ms: int = 1000, tab_id: int = 0) -> dict[str, Any]:
     if tab_id:
         body["tabId"] = int(tab_id)
     return _call("browser.wait", body)
+
+
+@mcp.tool()
+def desktop_status() -> dict[str, Any]:
+    """Desktop-leash bridge status (read-only)."""
+    return _call("desktop.status")
 
 
 @mcp.tool()

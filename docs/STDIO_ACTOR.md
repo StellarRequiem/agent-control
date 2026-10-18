@@ -29,6 +29,8 @@ The value is lowercased and checked against the roster before the server listens
 
 Built-in roster: `grok`, `claude`, `codex`.
 
+`ollama` is not in that roster. The local harness in `docs/OLLAMA_AGENT.md` launches this server with `--actor ollama` only after the operator adds that name to `receipts/stdio-actors`.
+
 Operators can add a name without a code change. Files live under `receipts/` and are gitignored, same place as HTTP passport files:
 
 | File | What it does |
