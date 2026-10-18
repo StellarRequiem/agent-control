@@ -256,10 +256,11 @@ class AssuredPlaneHost:
                 "plane.receipts_rotate",
             }
         )
-        # chain_repair_allow needs mcp-assure with claim-ladder receipts work.
-        # 0.3.2 (what CI installs) rejects the kwarg and then denies every tool,
-        # including these two, once verify_file fails. The host fallback in call()
-        # runs them without appending that deny onto the broken file.
+        # chain_repair_allow needs a newer mcp-assure than the 0.3.2 CI installs.
+        # That release rejects the kwarg and then denies every tool with
+        # CHAIN_BROKEN, before the catalog, once verify_file fails. call() still
+        # sends the repair tools through the dispatcher; it only skips the
+        # receipt append that would chain off the poison tip.
         self._engine_chain_repair = True
         try:
             engine = AssureEngine(
@@ -537,15 +538,12 @@ class AssuredPlaneHost:
         return self._dispatcher.call_tool(self._bound_call(name, arguments))
 
     def _chain_repair_bypass(self, name: str) -> bool:
-        """Diagnose or rotate without letting the gate append onto a broken file.
+        """True when a repair tool must not append onto a broken receipt file.
 
-        When the installed AssureEngine has no chain_repair_allow, evaluate()
-        denies these tools with CHAIN_BROKEN before the handler, and _finish
-        appends that deny using the poison tip. An intact chain, a missing
-        file, and every other tool stay on the normal gate.
+        An intact chain, a missing file, and every other tool stay on the
+        normal gate, receipts included. A freeze still applies: a repair tool
+        that is not on the freeze allowlist is left to the gate's FREEZE deny.
         """
-        if self._engine_chain_repair:
-            return False
         if name not in ("plane.receipts_status", "plane.receipts_rotate"):
             return False
         engine = self._dispatcher.engine
@@ -561,38 +559,36 @@ class AssuredPlaneHost:
         return not ok
 
     def _call_chain_repair(self, name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
-        call = self._bound_call(name, arguments)
-        handler = {
-            "plane.receipts_status": self._plane_receipts_status,
-            "plane.receipts_rotate": self._plane_receipts_rotate,
-        }[name]
-        verdict = {
-            "decision": "ALLOW",
-            "tool": name,
-            "code": "OK",
-            "detail": (
-                "chain repair ran locally; the installed gate would deny "
-                "CHAIN_BROKEN and append onto the broken file"
-            ),
-            "allowed": True,
-            "receipt_hash": None,
-            "receipt_id": None,
-        }
+        """Authorize through the dispatcher, and do not append onto the poison file.
+
+        Catalog, argument, dry_run_only, and AdaptiveGate checks still decide.
+        Only ALLOW reaches the handler. The broken file cannot take the
+        decision receipt: an engine without chain_repair_allow returns
+        CHAIN_BROKEN before those checks and appends that deny with the poison
+        tip, and an engine with the hook lets the tool through and then appends
+        the later decision the same way. Skip that append. On an engine with no
+        repair hook, also skip the chain short-circuit so the other checks run.
+        """
+        engine = self._dispatcher.engine
+        previous_require = engine.require_intact_chain
+        if not self._engine_chain_repair:
+            engine.require_intact_chain = False
+        chain = engine.chain
+        original_append = chain.append
+
+        def _skip_broken_chain_append(**_kwargs: Any) -> None:
+            return None
+
+        chain.append = _skip_broken_chain_append  # type: ignore[method-assign]
         try:
-            result = handler(call.arguments or {})
-        except Exception as exc:  # noqa: BLE001 — same surface as AssuredRunner.invoke
-            return {
-                "verdict": verdict,
-                "executed": False,
-                "result": None,
-                "error": f"{type(exc).__name__}: {exc}",
-            }
-        return {
-            "verdict": verdict,
-            "executed": True,
-            "result": result,
-            "error": None,
-        }
+            return self._dispatcher.call_tool(self._bound_call(name, arguments))
+        finally:
+            engine.require_intact_chain = previous_require
+            # Rotate replaces engine.chain after it archives. The replacement
+            # must keep a real append; restoring onto it would silence the
+            # next intact-chain receipt.
+            if engine.chain is chain:
+                chain.append = original_append
 
     def authorize_only(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         self._maybe_reload_pack()
@@ -661,6 +657,10 @@ class AssuredPlaneHost:
             # previous tip (the poison hash, or the receipt just archived), and
             # the next append would fail verify_file if that tip were reused.
             self._reset_receipt_chain()
+        # ReceiptChain.rotate_if_broken reports "archive"; the host helper
+        # reports "archived". Callers see one key either way.
+        if not out.get("archived") and out.get("archive"):
+            out["archived"] = out["archive"]
         out["claim"] = (
             "rotates host receipt log only; does not erase leash history or SOC incidents"
         )
