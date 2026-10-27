@@ -48,16 +48,40 @@ def test_live_collect_results_schema_valid_if_present():
         assert errs == [], (p.name, errs)
 
 
-LOCKED_1000 = "a44275dfb5617c4a676b53dcd39947c0f1029050443c71573bfad11e633f7120"
+# Updated 2026-10-27 under ops/10.30: §0b gained the Claude-runtime UNENFORCED status note
+# (v1.7). Previous value a44275dfb5617c4a676b53dcd39947c0f1029050443c71573bfad11e633f7120.
+LOCKED_1000 = "e34aa955bb522f5515d7b0e1a4bcea054e9494efba54844aa09fbe9c66e84f40"
+
+
+def _live_1000_digest() -> str:
+    import hashlib
+
+    return hashlib.sha256(
+        (Path.home() / "ops" / "10.00-AGENT-INDEX.md").read_bytes()
+    ).hexdigest()
 
 
 def test_1000_pin_matches_lock():
-    import hashlib
+    assert _live_1000_digest() == LOCKED_1000
 
-    digest = hashlib.sha256(
-        (Path.home() / "ops" / "10.00-AGENT-INDEX.md").read_bytes()
-    ).hexdigest()
-    assert digest == LOCKED_1000
+
+def test_1000_pin_matches_the_bootstraps():
+    """The index and every bootstrap that pins it must agree.
+
+    The hardcoded pin above catches an index edit; this catches the drift class that actually
+    bit us, where the index and a bootstrap disagree because one was updated and the other was
+    not. Needs no manual update on an authorized edit — it asserts a relationship, not a value.
+    """
+    import re
+
+    live = _live_1000_digest()
+    for boot in (Path.home() / "AGENTS.md", Path.home() / ".codex" / "AGENTS.md"):
+        if not boot.is_file():
+            continue
+        m = re.search(r"10\.00-AGENT-INDEX\.md` has SHA-256 `([0-9a-f]{64})`",
+                      boot.read_text(encoding="utf-8"))
+        assert m, f"{boot} carries no index pin"
+        assert m.group(1) == live, f"{boot} pins {m.group(1)[:16]}…, live index is {live[:16]}…"
 
 
 def test_lock_pins_writes_sha256():
