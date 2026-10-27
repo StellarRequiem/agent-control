@@ -38,7 +38,7 @@ FORMAT = "conduit-access/1"
 PLANES = ("shell", "browser", "desktop", "cua")
 LEVEL_NAMES = {0: "surface", 1: "deep_read", 2: "interact", 3: "shell_rw", 4: "shell_sudo"}
 #: Max lifetime the host will honour for elevated levels, whatever the file says.
-MAX_TTL = {3: 3600, 4: 3600}
+MAX_TTL = {4: 3600}  # L1-L3 no auto-expiry (operator 2026-10-26); L4 keeps 1h
 SUDO_WINDOW_MAX = 3600
 APPROVAL_MAX_AGE = 120
 
@@ -161,7 +161,7 @@ def effective_policy(now: float | None = None, policy_dir: Path | None = None) -
     if level not in LEVEL_NAMES or set_at > now + 60:
         return _fallback("bad_fields", planes)
     exp = p.get("expires_at")
-    if level >= 3:
+    if level >= 4:
         if not isinstance(exp, (int, float)):
             return _fallback("elevated_without_expiry", planes)
         exp = min(float(exp), set_at + MAX_TTL[level])
