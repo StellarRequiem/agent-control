@@ -14,10 +14,12 @@ Env:
 
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import secrets
 import sys
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -28,6 +30,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path.home() / "mcp-assure"))
 
 from host.plane_host import AssuredPlaneHost, PACK_PATH  # noqa: E402
+from host.stdio_actor import DEFAULT_ROSTER, NAMED_TOKEN_RE, STDIO_ROSTER_FILENAME, _roster_lines  # noqa: E402
 
 PORT = int(os.environ.get("AGENT_CONTROL_MCP_PORT", "8762"))
 HOST = os.environ.get("AGENT_CONTROL_MCP_HOST", "127.0.0.1")
@@ -38,8 +41,76 @@ SERVER_INFO = {"name": "agent-control", "version": "0.5.0"}
 _host: AssuredPlaneHost | None = None
 
 
+
+def _plane_call_denied(tool: str):
+    """C1d: plane.* (incl. underscore forms) may not be reached via plane_call."""
+    t = (tool or "").strip().lower()
+    if t.startswith("plane.") or t.startswith("plane_"):
+        return {"ok": False, "code": "PLANE_CALL_DENIED",
+                "detail": f"{tool!r} must be invoked via its first-class tool, not plane_call"}
+    return None
+
+
+# --- Per-actor HTTP passports (additive) -------------------------------------
+# receipts/mcp-http.token keeps resolving to the historical default actor (grok)
+# exactly as before. Named files receipts/mcp-http.<actor>.token map their bearer
+# to <actor> when <actor> is on the stdio roster. Tokens are never logged/printed.
+_req = threading.local()
+_actor_hosts: dict[str, AssuredPlaneHost] = {}
+_actor_hosts_lock = threading.Lock()
+
+
+def _named_tokens() -> list[tuple[str, str]]:
+    """(actor, token) for roster-valid named passport files. Bodies stay in memory only."""
+    out: list[tuple[str, str]] = []
+    try:
+        # Stricter than load_stdio_roster(): a token filename alone must not
+        # self-enroll an actor — it must be built-in or listed in stdio-actors.
+        roster = set(DEFAULT_ROSTER) | set(_roster_lines(TOKEN_PATH.parent / STDIO_ROSTER_FILENAME))
+        paths = sorted(TOKEN_PATH.parent.glob("mcp-http.*.token"))
+    except OSError:
+        return out
+    for p in paths:
+        m = NAMED_TOKEN_RE.fullmatch(p.name)
+        if not m:
+            continue
+        actor = m.group(1)
+        if actor == "grok" or actor not in roster:
+            continue
+        try:
+            t = p.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if len(t) >= 32:
+            out.append((actor, t))
+    return out
+
+
+def _resolve_bearer(presented: str) -> str | None:
+    """Return None for the default (grok) token, an actor name for a named token,
+    or raise LookupError when nothing matches. Constant-time compares."""
+    presented = (presented or "").strip()
+    if not presented:
+        raise LookupError
+    expect = _token()
+    if expect and hmac.compare_digest(presented.encode(), expect.encode()):
+        return None  # historical default host (grok)
+    for actor, tok in _named_tokens():
+        if hmac.compare_digest(presented.encode(), tok.encode()):
+            return actor
+    raise LookupError
+
+
 def host() -> AssuredPlaneHost:
     global _host
+    actor = getattr(_req, "actor", None)
+    if actor is not None:
+        with _actor_hosts_lock:
+            h = _actor_hosts.get(actor)
+            if h is None:
+                h = AssuredPlaneHost(actor=actor)  # roster-validated in __init__
+                _actor_hosts[actor] = h
+            return h
     if _host is None:
         _host = AssuredPlaneHost()
     return _host
@@ -86,6 +157,10 @@ def _tools() -> list[dict[str, Any]]:
         props: dict[str, Any] = {}
         for a in allowed:
             props[a] = {"type": "string"}
+        if name == "shell.sudo":
+            # handler requires a real argv list (sudo_preflight rejects strings)
+            props["argv"] = {"type": "array", "items": {"type": "string"}, "minItems": 1,
+                             "description": "allowlisted argv, e.g. [\"launchctl\",\"list\"]; run via sudo -n"}
         out.append(
             {
                 "name": _mcp_name(name),
@@ -118,8 +193,86 @@ def _tools() -> list[dict[str, Any]]:
     return out
 
 
-def _call_plane(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
-    out = host().call(name, arguments or {})
+# --- Self-declared agent name (report-only, grants nothing) -----------------
+# A client may pass `_agent` as a tool argument or an `X-Agent-Name` header.
+# It is stripped BEFORE the gate/policy/handlers see the arguments, never changes
+# the actor, decision, scores, or freeze, and is recorded in a SIDE LOG keyed by
+# receipt_id (the hash-chained receipt body is untouched). The side log lives
+# outside receipts/ so agent-soc's receipts/*.jsonl glob never ingests it.
+RESERVED_AGENT_ARG = "_agent"
+CLAIMS_LOG = ROOT / "claims" / "claimed-agents.jsonl"
+AGENT_REGISTRY = Path.home() / "agent-soc" / "registry" / "registry.json"
+_claims_lock = threading.Lock()
+
+
+def _agent_allowlist() -> dict[str, str] | None:
+    """name -> canonical registry agent_id, from the agent-soc registry (non-revoked)."""
+    try:
+        db = json.loads(AGENT_REGISTRY.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    out: dict[str, str] = {}
+    for aid, rec in (db.get("agents") or {}).items():
+        if rec.get("status") == "revoked":
+            continue
+        names = {aid, aid.replace("-", "_")}
+        for rule in rec.get("match") or []:
+            if rule.get("plane") == "agent-control" and rule.get("actor"):
+                names.add(str(rule["actor"]))
+        for n in names:
+            out[n.lower()] = aid
+    return out
+
+
+def _sanitize(v: Any) -> str:
+    return "".join(c for c in str(v)[:48].lower() if c.isalnum() or c in "-_") or "empty"
+
+
+def classify_claim(raw: Any) -> str | None:
+    if raw is None or raw == "":
+        return None
+    name = _sanitize(raw)
+    allow = _agent_allowlist()
+    if allow is None:
+        return f"unverified:{name}"
+    return allow.get(name) or f"invalid:{name}"
+
+
+def _record_claim(claim: str, raw_source: str, tool: str, out: dict[str, Any]) -> None:
+    try:
+        v = out.get("verdict") or {}
+        row = {
+            "ts": __import__("time").time(),
+            "receipt_id": v.get("receipt_id"),
+            "receipt_hash": v.get("receipt_hash"),
+            "actor": getattr(host(), "actor", None),
+            "claimed_agent": claim,
+            "via": raw_source,
+            "tool": tool,
+            "decision": v.get("decision"),
+        }
+        CLAIMS_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with _claims_lock, CLAIMS_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(row, sort_keys=True) + "\n")
+    except Exception:  # report-only: never affect the call
+        pass
+
+
+def _call_plane(name: str, arguments: dict[str, Any] | None, claim_raw: Any = None,
+                claim_via: str = "") -> dict[str, Any]:
+    args = dict(arguments or {})
+    if RESERVED_AGENT_ARG in args:  # strip before gate / ARG_POLICY / handlers
+        inner = args.pop(RESERVED_AGENT_ARG)
+        if claim_raw in (None, ""):
+            claim_raw, claim_via = inner, "arg"
+    if claim_raw in (None, ""):
+        hdr = getattr(_req, "agent_name", None)
+        if hdr:
+            claim_raw, claim_via = hdr, "header"
+    out = host().call(name, args)
+    claim = classify_claim(claim_raw)
+    if claim:
+        _record_claim(claim, claim_via, name, out)
     return {
         "executed": out.get("executed"),
         "verdict": out.get("verdict"),
@@ -157,8 +310,15 @@ def handle_rpc(msg: dict[str, Any]) -> dict[str, Any] | None:
     if method == "tools/call":
         tname = str(params.get("name") or "")
         args = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
+        args = dict(args)
+        claim_raw = args.pop(RESERVED_AGENT_ARG, None)
+        claim_via = "arg" if claim_raw not in (None, "") else ""
         if tname == "plane_call":
             tool = str(args.get("tool") or "")
+            denied = _plane_call_denied(tool)
+            if denied:
+                return {"jsonrpc": "2.0", "id": mid, "result": {
+                    "content": [{"type": "text", "text": json.dumps(denied)}], "isError": True}}
             raw = args.get("arguments_json") or "{}"
             try:
                 body = json.loads(raw) if isinstance(raw, str) else (raw if isinstance(raw, dict) else {})
@@ -173,10 +333,15 @@ def handle_rpc(msg: dict[str, Any]) -> dict[str, Any] | None:
                         "isError": True,
                     },
                 }
-            result = _call_plane(tool, body if isinstance(body, dict) else {})
+            result = _call_plane(tool, body if isinstance(body, dict) else {}, claim_raw, claim_via)
         else:
             plane = _plane_name(tname)
-            result = _call_plane(plane, args)
+            if plane == "shell.sudo" and isinstance(args.get("argv"), str):
+                try:  # tolerate clients that send argv as a JSON string
+                    args["argv"] = json.loads(args["argv"])
+                except json.JSONDecodeError:
+                    pass  # preflight will reject it
+            result = _call_plane(plane, args, claim_raw, claim_via)
         err = bool(result.get("error") or (result.get("verdict") or {}).get("decision") == "DENY")
         return {
             "jsonrpc": "2.0",
@@ -220,14 +385,24 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(raw)
 
     def _auth_ok(self) -> bool:
+        """Authenticate and bind the request actor (thread-local). Unknown → False."""
+        _req.actor = None
+        _req.agent_name = (self.headers.get("X-Agent-Name") or "").strip() or None
         expect = _token()
         if not expect:
             return False
         auth = self.headers.get("Authorization") or ""
-        if auth.startswith("Bearer ") and auth[7:].strip() == expect:
-            return True
-        if (self.headers.get("X-Agent-Control-Token") or "").strip() == expect:
-            return True
+        candidates = []
+        if auth.startswith("Bearer "):
+            candidates.append(auth[7:])
+        candidates.append(self.headers.get("X-Agent-Control-Token") or "")
+        for c in candidates:
+            try:
+                _req.actor = _resolve_bearer(c)
+                return True
+            except LookupError:
+                continue
+        _req.actor = None
         return False
 
     def do_OPTIONS(self) -> None:  # noqa: N802

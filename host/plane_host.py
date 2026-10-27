@@ -41,9 +41,11 @@ from host.stdio_actor import (  # noqa: E402
 )
 from host.cua_loop import CuaController  # noqa: E402
 from host.profile_mode import profile_summary  # noqa: E402
+from host import access_policy  # noqa: E402
 
 PACK_PATH = ROOT / "packs" / "local_planes.json"
 RECEIPTS = ROOT / "receipts" / "plane-host.jsonl"
+ACCESS_RECEIPTS = ROOT / "receipts" / "access-policy.jsonl"
 FREEZE = ROOT / "FREEZE"
 #: Every marker `plane.unfreeze` clears, so status and unfreeze can never disagree
 #: about what "frozen" means. They used to: unfreeze knew all three paths and status
@@ -75,6 +77,7 @@ FREEZE_ALLOW = frozenset(
         "shell.list_dir",
         "shell.stat",
         "plane.unfreeze",  # recovery without native bash
+        "plane.unfreeze_signed",  # C1d: signed recovery route must work while frozen
         "plane.receipts_status",
         "plane.receipts_rotate",
     }
@@ -221,6 +224,27 @@ def detect_mediated_shell_config() -> dict[str, Any]:
     }
 
 
+
+def _annotate_handler_outcome(out: Any) -> Any:
+    """C1c (KOH 2026-10-20): surface the handler's own verdict next to the gate's.
+
+    The receipt is written inside mcp-assure's runner *before* the handler result is
+    known, so it is NOT annotated here (doing so would require rewriting a chained
+    line). Receipt-level handler_ok/handler_code needs an mcp-assure runner change.
+    """
+    if not isinstance(out, dict):
+        return out
+    res = out.get("result")
+    verdict = out.get("verdict")
+    if isinstance(res, dict) and res.get("ok") is False and isinstance(verdict, dict):
+        verdict = dict(verdict)
+        verdict["handler_ok"] = False
+        verdict["handler_code"] = str(res.get("code") or "UNSPECIFIED")
+        out = {**out, "verdict": verdict}
+    elif isinstance(res, dict) and res.get("ok") is True and isinstance(verdict, dict):
+        out = {**out, "verdict": {**verdict, "handler_ok": True}}
+    return out
+
 class AssuredPlaneHost:
     """Single choke point for plane tool calls."""
 
@@ -291,6 +315,7 @@ class AssuredPlaneHost:
             "plane.status": self._plane_status,
             "plane.route": self._plane_route,
             "plane.unfreeze": self._plane_unfreeze,
+            "plane.unfreeze_signed": self._plane_unfreeze_signed,
             "plane.receipts_status": self._plane_receipts_status,
             "plane.receipts_rotate": self._plane_receipts_rotate,
             "plane.reload_handlers": self._plane_reload_handlers,
@@ -348,6 +373,9 @@ class AssuredPlaneHost:
             "shell.stat": self.shell.stat,
             "shell.run": self.shell.run,
             "shell.exec": self.shell.exec,
+            # Level 4. Not in packs/local_planes.json yet, so the engine still denies it
+            # (deny-by-default) until the operator adds it to the signed pack.
+            "shell.sudo": self._shell_sudo,
             "cua.start": self._cua_start,
             "cua.stop": self._cua_stop,
             "cua.status": self._cua_status,
@@ -393,20 +421,17 @@ class AssuredPlaneHost:
         return self.cua.step(a or {})
 
     def _maybe_reload_pack(self) -> None:
-        """Reload policy pack when local_planes.json mtime changes (no MCP restart)."""
+        """C1/C2: refuse unsigned pack hot-reload. Operator must restart host after signed pack change."""
         try:
             mtime = float(PACK_PATH.stat().st_mtime)
         except OSError:
             return
         if mtime <= getattr(self, "_pack_mtime", 0.0):
             return
-        try:
-            new_reg = load_local_pack()
-        except Exception:
-            return
-        # Swap catalog in place; handlers already registered for new tool names
-        self._dispatcher.engine.registry = new_reg
+        # Detect change but do NOT apply — unsigned mtime swap was the C1 hole.
         self._pack_mtime = mtime
+        # Surface via status when possible; never swap registry from agent-writable pack file.
+        return
 
     def _plane_reload_handlers(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         """Re-import shell/browser/desktop handlers after disk edits (no full Grok restart).
@@ -526,13 +551,94 @@ class AssuredPlaneHost:
             source=self._dispatcher.source,
         )
 
+    def _access_ceiling(self, name: str) -> dict[str, Any] | None:
+        """Harness dial/switch ceiling. Only subtracts; engine still decides after."""
+        denial = access_policy.check(
+            name, frozen=bool(freeze_surface()["engaged"]), freeze_allow=FREEZE_ALLOW
+        )
+        if denial is not None:
+            access_policy.write_access_receipt(
+                ACCESS_RECEIPTS, {"actor": self.actor, "tool": name, "decision": "DENY", **denial}
+            )
+            return {"ok": False, "result": denial,
+                    "verdict": {"decision": "DENY", "reason": denial["code"], "source": "access_policy"}}
+        return None
+
     def call(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         self._maybe_reload_pack()
-        return self._dispatcher.call_tool(self._bound_call(name, arguments))
+        denied = self._access_ceiling(name)
+        if denied is not None:
+            return denied
+        out = self._dispatcher.call_tool(self._bound_call(name, arguments))
+        return _annotate_handler_outcome(out)
 
     def authorize_only(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         self._maybe_reload_pack()
+        denied = self._access_ceiling(name)
+        if denied is not None:
+            return denied
         return self._dispatcher.authorize_only(self._bound_call(name, arguments))
+
+    def _shell_sudo(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Level 4: allowlisted argv only, inside the 1-hour window, one-use signed approval per call.
+
+        Runs `sudo -n` (non-interactive): never prompts, never stores a password;
+        without a cached credential / sudoers rule for the argv it simply fails.
+        """
+        import subprocess
+
+        argv = (args or {}).get("argv")
+        pre = access_policy.sudo_preflight(argv)
+        if pre is not None:
+            return pre
+        ok, why = access_policy.consume_sudo_approval(argv)
+        if not ok:
+            return {"ok": False, "code": "SUDO_APPROVAL_REQUIRED", "detail": why,
+                    "argv_sha256": access_policy.argv_hash(argv)}
+        try:
+            proc = subprocess.run(["/usr/bin/sudo", "-n", "--", *argv], capture_output=True,
+                                  text=True, timeout=60, check=False)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return {"ok": False, "code": "SUDO_EXEC_FAILED", "detail": str(exc)}
+        return {"ok": proc.returncode == 0, "code": "OK" if proc.returncode == 0 else "SUDO_NONZERO",
+                "returncode": proc.returncode, "stdout": proc.stdout[-20000:], "stderr": proc.stderr[-4000:]}
+
+    def _plane_unfreeze_signed(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
+        """C2 (KOH 2026-10-20): operator unfreeze via one-use signed nonce + hardware presence.
+
+        Does NOT clear FREEZE until OperatorSigner / allowed_signers is configured and a
+        valid one-use nonce is presented. Agent-callable plane.unfreeze remains until this
+        route is proven (blue/operator drill). TTY checks are intentionally not used.
+        """
+        a = args or {}
+        nonce = str(a.get("nonce") or "").strip()
+        signature = str(a.get("signature") or "").strip()
+        if not nonce or not signature:
+            return {
+                "ok": False,
+                "code": "NONCE_SIG_REQUIRED",
+                "detail": "nonce and signature required for signed unfreeze",
+            }
+        # Key ceremony not completed on this host — fail closed (do not clear FREEZE).
+        signer_path = ROOT / "ops" / "operator-signer"
+        # Prefer ~/ops/operator-signer (outside pack writes after C1)
+        alt = Path.home() / "ops" / "operator-signer"
+        cfg = alt if alt.is_dir() else signer_path
+        allowed = cfg / "allowed_signers"
+        if not allowed.is_file():
+            return {
+                "ok": False,
+                "code": "NOT_CONFIGURED",
+                "detail": "operator key ceremony incomplete — allowed_signers missing; FREEZE not cleared",
+                "expected_path": str(Path.home() / "ops" / "operator-signer" / "allowed_signers"),
+                "claim": "C2 nonce route staged; hardware-touch key ceremony is operator-only",
+            }
+        return {
+            "ok": False,
+            "code": "VERIFY_NOT_WIRED",
+            "detail": "allowed_signers present but signature verify + one-use nonce store not wired; FREEZE not cleared",
+            "claim": "fail closed until OperatorSigner verify path is completed by operator",
+        }
 
     def _plane_unfreeze(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         """Clear FREEZE files (allowed during freeze for recovery without native shell)."""
@@ -604,6 +710,7 @@ class AssuredPlaneHost:
             # First, because it decides whether anything else in this payload is
             # actionable. A frozen plane that reports "armed" reads as ready.
             "freeze": freeze_surface(),
+            "access": access_policy.effective_policy(),
             "host_code": host_code_surface(),
             "browser_leash": {
                 "up": b.get("ok") is True or b.get("bridge") == "up",

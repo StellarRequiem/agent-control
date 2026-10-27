@@ -83,6 +83,15 @@ def plane_route(task: str) -> dict[str, Any]:
     return _call("plane.route", {"task": task})
 
 
+def _plane_call_denied(tool: str):
+    """C1d: plane.* (incl. underscore forms) may not be reached via plane_call."""
+    t = (tool or "").strip().lower()
+    if t.startswith("plane.") or t.startswith("plane_"):
+        return {"ok": False, "code": "PLANE_CALL_DENIED",
+                "detail": f"{tool!r} must be invoked via its first-class tool, not plane_call"}
+    return None
+
+
 @mcp.tool()
 def plane_call(tool: str, arguments_json: str = "{}") -> dict[str, Any]:
     """Call any pack tool through AssuredPlaneHost (deny-by-default).
@@ -90,6 +99,9 @@ def plane_call(tool: str, arguments_json: str = "{}") -> dict[str, Any]:
     tool: e.g. browser.navigate, desktop.apps, shell.exec, cua.start
     arguments_json: JSON object of tool arguments
     """
+    denied = _plane_call_denied(tool)
+    if denied:
+        return denied
     try:
         args = json.loads(arguments_json or "{}")
     except json.JSONDecodeError as e:
@@ -114,6 +126,19 @@ def shell_exec(argv_json: str, cwd: str = "") -> dict[str, Any]:
     if cwd:
         body["cwd"] = cwd
     return _call("shell.exec", body)
+
+
+@mcp.tool()
+def shell_sudo(argv_json: str) -> dict[str, Any]:
+    """Level 4 gated sudo: allowlisted argv via `sudo -n`. Needs access level 4, open
+    1-hour sudo window, argv on the sudo allowlist, and a one-use Conduit-signed approval.
+    Blocked under FREEZE. argv_json: JSON array e.g. [\"launchctl\",\"list\"]
+    """
+    try:
+        argv = json.loads(argv_json)
+    except json.JSONDecodeError as e:
+        return {"ok": False, "code": "BAD_JSON", "detail": str(e)}
+    return _call("shell.sudo", {"argv": argv})
 
 
 @mcp.tool()

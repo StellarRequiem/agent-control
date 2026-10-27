@@ -2,7 +2,7 @@
   "meta": {
     "id": "local_planes",
     "description": "Planes + gated shell + CUA session tools. Deny-by-default. Not ambient OS control.",
-    "version": 15
+    "version": 17
   },
   "tools": {
     "plane.status": {
@@ -29,7 +29,7 @@
       "max_arg_bytes": 256
     },
     "plane.receipts_status": {
-      "description": "Verify receipt chain integrity (works when chain is broken — diagnose only)",
+      "description": "Verify receipt chain integrity (works when chain is broken \u2014 diagnose only)",
       "max_blast": 1,
       "allowed_args": [],
       "max_arg_bytes": 256
@@ -714,6 +714,35 @@
         "replace_all"
       ],
       "max_arg_bytes": 1048576,
+      "forbidden_args": [
+        "token",
+        "password",
+        "api_key"
+      ]
+    },
+    "plane.unfreeze_signed": {
+      "description": "Operator unfreeze via one-use signed nonce + hardware presence (fail closed if not configured)",
+      "max_blast": 2,
+      "required_args": [
+        "nonce",
+        "signature"
+      ],
+      "allowed_args": [
+        "nonce",
+        "signature"
+      ],
+      "max_arg_bytes": 8192
+    },
+    "shell.sudo": {
+      "description": "Level 4: run an allowlisted argv via `sudo -n` (never a shell string, never prompts). Requires access-policy level 4, active 1-hour sudo window (Mac password), argv in sudo allowlist, and a one-use signed per-call approval. Blocked under FREEZE.",
+      "max_blast": 3,
+      "required_args": [
+        "argv"
+      ],
+      "allowed_args": [
+        "argv"
+      ],
+      "max_arg_bytes": 8192,
       "forbidden_args": [
         "token",
         "password",

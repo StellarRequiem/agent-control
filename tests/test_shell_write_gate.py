@@ -30,7 +30,7 @@ from host.shell_handlers import MAX_WRITE_BYTES, ShellHandlers
 # ---- handler guards: the write-side fence ---------------------------------
 
 def test_write_under_root_allows_and_persists(tmp_path):
-    sh = ShellHandlers(roots=(tmp_path,))
+    sh = ShellHandlers(roots=(tmp_path,), write_roots=(tmp_path,))
     target = tmp_path / "src" / "note.txt"
     out = sh.write_file({"path": str(target), "content": "hello gate"})
     assert out["ok"] is True and out["code"] == "WROTE"
@@ -39,20 +39,20 @@ def test_write_under_root_allows_and_persists(tmp_path):
 
 
 def test_parent_traversal_denied(tmp_path):
-    sh = ShellHandlers(roots=(tmp_path,))
+    sh = ShellHandlers(roots=(tmp_path,), write_roots=(tmp_path,))
     out = sh.write_file({"path": "../escape.txt", "content": "x"})
     assert out["ok"] is False and out["code"] == "PATH_TRAVERSAL"
 
 
 def test_absolute_outside_root_denied(tmp_path):
-    sh = ShellHandlers(roots=(tmp_path,))
+    sh = ShellHandlers(roots=(tmp_path,), write_roots=(tmp_path,))
     out = sh.write_file({"path": "/etc/cron.d/pwn", "content": "x"})
     assert out["ok"] is False and out["code"] == "PATH_OUTSIDE_ROOTS"
     assert not Path("/etc/cron.d/pwn").exists()  # never attempted
 
 
 def test_secret_shaped_filename_refused(tmp_path):
-    sh = ShellHandlers(roots=(tmp_path,))
+    sh = ShellHandlers(roots=(tmp_path,), write_roots=(tmp_path,))
     for name in ("id_rsa", "server.pem", "signing.key", ".env", "aws_credentials", "secret.txt"):
         out = sh.write_file({"path": str(tmp_path / name), "content": "x"})
         assert out["ok"] is False and out["code"] == "SECRET_FILENAME", name
@@ -60,7 +60,7 @@ def test_secret_shaped_filename_refused(tmp_path):
 
 
 def test_oversize_content_denied(tmp_path):
-    sh = ShellHandlers(roots=(tmp_path,))
+    sh = ShellHandlers(roots=(tmp_path,), write_roots=(tmp_path,))
     big = "a" * (MAX_WRITE_BYTES + 1)
     out = sh.write_file({"path": str(tmp_path / "blob.bin"), "content": big})
     assert out["ok"] is False and out["code"] == "CONTENT_TOO_LARGE"
@@ -68,13 +68,13 @@ def test_oversize_content_denied(tmp_path):
 
 
 def test_missing_or_nonstring_content_denied(tmp_path):
-    sh = ShellHandlers(roots=(tmp_path,))
+    sh = ShellHandlers(roots=(tmp_path,), write_roots=(tmp_path,))
     assert sh.write_file({"path": str(tmp_path / "a")})["code"] == "CONTENT_REQUIRED"
     assert sh.write_file({"path": str(tmp_path / "a"), "content": 123})["code"] == "CONTENT_REQUIRED"
 
 
 def test_create_mode_refuses_existing(tmp_path):
-    sh = ShellHandlers(roots=(tmp_path,))
+    sh = ShellHandlers(roots=(tmp_path,), write_roots=(tmp_path,))
     target = tmp_path / "once.txt"
     assert sh.write_file({"path": str(target), "content": "1", "mode": "create"})["ok"] is True
     out = sh.write_file({"path": str(target), "content": "2", "mode": "create"})
@@ -83,13 +83,13 @@ def test_create_mode_refuses_existing(tmp_path):
 
 
 def test_bad_mode_denied(tmp_path):
-    sh = ShellHandlers(roots=(tmp_path,))
+    sh = ShellHandlers(roots=(tmp_path,), write_roots=(tmp_path,))
     out = sh.write_file({"path": str(tmp_path / "a"), "content": "x", "mode": "append"})
     assert out["ok"] is False and out["code"] == "BAD_MODE"
 
 
 def test_overwrite_is_the_default(tmp_path):
-    sh = ShellHandlers(roots=(tmp_path,))
+    sh = ShellHandlers(roots=(tmp_path,), write_roots=(tmp_path,))
     target = tmp_path / "doc.txt"
     sh.write_file({"path": str(target), "content": "first"})
     out = sh.write_file({"path": str(target), "content": "second"})  # no mode -> overwrite
@@ -111,6 +111,7 @@ def _host(tmp_path, frozen: bool):
         adaptive=True,
     )
     host.shell.roots = (tmp_path.resolve(),)  # confine the host's shell to tmp
+    host.shell.write_roots = (tmp_path.resolve(),)  # C1: writes use a separate root set
     return host
 
 
@@ -145,7 +146,7 @@ def test_write_is_not_in_freeze_allow(tmp_path):
 # ---- apply_patch (mediated StrReplace) ------------------------------------
 
 def test_apply_patch_single_match(tmp_path):
-    sh = ShellHandlers(roots=(tmp_path,))
+    sh = ShellHandlers(roots=(tmp_path,), write_roots=(tmp_path,))
     target = tmp_path / "a.txt"
     target.write_text("alpha beta gamma")
     out = sh.apply_patch(
@@ -157,7 +158,7 @@ def test_apply_patch_single_match(tmp_path):
 
 
 def test_apply_patch_ambiguous_without_replace_all(tmp_path):
-    sh = ShellHandlers(roots=(tmp_path,))
+    sh = ShellHandlers(roots=(tmp_path,), write_roots=(tmp_path,))
     target = tmp_path / "a.txt"
     target.write_text("xx xx")
     out = sh.apply_patch({"path": str(target), "old_string": "xx", "new_string": "yy"})
@@ -166,7 +167,7 @@ def test_apply_patch_ambiguous_without_replace_all(tmp_path):
 
 
 def test_apply_patch_replace_all(tmp_path):
-    sh = ShellHandlers(roots=(tmp_path,))
+    sh = ShellHandlers(roots=(tmp_path,), write_roots=(tmp_path,))
     target = tmp_path / "a.txt"
     target.write_text("xx xx")
     out = sh.apply_patch(

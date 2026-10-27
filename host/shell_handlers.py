@@ -33,6 +33,57 @@ DEFAULT_ROOTS = (
     Path.home() / "Documents" / "Codex" / "2026-09-01" / "work-from-security-md-on-origin",
 )
 
+# C1 (KOH 2026-10-20): writes use a narrower root set. Authority trees stay readable
+# but are not writable through shell.write_file / apply_patch / git writes.
+# Same-uid note: ownership/schg still required from operator (see blue review).
+WRITE_ROOTS = (
+    # C1b (KOH 2026-10-20, PROPOSED): ~/ops, ~/agent-soc, ~/portfolio, ~/desktop-leash,
+    # ~/browser-leash removed — they host scripts executed by named commands, so being
+    # writable = arbitrary llm01 code via shell.write_file + shell.run (blue verify #14).
+    Path.home() / "Forest-Soul-Forge",
+    Path.home() / "Documents" / "Codex" / "2026-09-01" / "work-from-security-md-on-origin",
+)
+
+# Basename / path fragments that must never be agent-writable even under WRITE_ROOTS.
+_WRITE_DENY_NAME_PREFIXES = ("authorize-", "authorize_")
+_WRITE_DENY_NAMES = frozenset(
+    {
+        "authorizations.yaml",
+        "allowed_signers",
+        "local_planes.json",
+        "mcp-http.token",
+        "OPERATOR_PROTOCOL.md",
+    }
+)
+_WRITE_DENY_DIR_NAMES = frozenset({".git", "host", "packs", "receipts", "warrant", "mcp-assure", "agent-control"})
+
+
+def _path_is_write_denied(path: Path) -> str | None:
+    """Return a deny code detail if path must not be written, else None."""
+    parts = set(path.parts)
+    if ".git" in parts:
+        return ".git/ path denied for writes"
+    name = path.name
+    if name in _WRITE_DENY_NAMES:
+        return f"authority filename {name!r} not writable"
+    if name.startswith(_WRITE_DENY_NAME_PREFIXES):
+        return f"authorize script {name!r} not writable"
+    # block writes under agent-control / mcp-assure / warrant even if somehow rooted
+    home = Path.home()
+    for blocked in (
+        home / "agent-control",
+        home / "mcp-assure",
+        home / "warrant",
+        _PKG_ROOT,
+    ):
+        try:
+            path.resolve().relative_to(blocked.resolve())
+            return f"writes under {blocked} denied (C1 authority tree)"
+        except ValueError:
+            continue
+    return None
+
+
 # Named commands only — no free-form argv
 ALLOW_COMMANDS: dict[str, list[str]] = {
     # Operator-approved offline schema qualification; fixed argv and source pin.
@@ -41,9 +92,9 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
     "sidecar_status": ["/usr/bin/env","-i","PATH=/usr/bin:/bin","LANG=C.UTF-8","HOME=/Users/llm01","/opt/homebrew/Cellar/node/26.3.0/bin/node","/Users/llm01/agent-control/sidecar-maintenance/1.0.0/maintenance.mjs","status"],
     "sidecar_test_daily": ["/usr/bin/env","-i","PATH=/usr/bin:/bin","LANG=C.UTF-8","HOME=/Users/llm01","/opt/homebrew/Cellar/node/26.3.0/bin/node","/Users/llm01/agent-control/sidecar-maintenance/1.0.0/maintenance.mjs","daily"],
     "sidecar_test_weekly": ["/usr/bin/env","-i","PATH=/usr/bin:/bin","LANG=C.UTF-8","HOME=/Users/llm01","/opt/homebrew/Cellar/node/26.3.0/bin/node","/Users/llm01/agent-control/sidecar-maintenance/1.0.0/maintenance.mjs","weekly"],
-    "git_status": ["git", "status", "--short"],
-    "git_diff_stat": ["git", "diff", "--stat"],
-    "git_log": ["git", "log", "-5", "--oneline"],
+    "git_status": ["git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=", "-c", "diff.external=", "status", "--short"],
+    "git_diff_stat": ["git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=", "-c", "diff.external=", "diff", "--no-ext-diff", "--no-textconv", "--stat"],
+    "git_log": ["git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=", "-c", "diff.external=", "log", "--no-ext-diff", "--no-textconv", "-5", "--oneline"],
     "mcp_assure_status": [
         str(Path.home() / "mcp-assure" / ".venv" / "bin" / "mcp-assure"),
         "status",
@@ -53,25 +104,10 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
         "check",
     ],
     # 10.10 probe rail — named argv only (no free-form python3)
-    "probe_validate": [
-        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
-        str(Path.home() / "ops" / "probes" / "validate_result.py"),
-        str(Path.home() / "ops" / "probes" / "results" / "latest.json"),
-    ],
-    "probe_validate_ok": [
-        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
-        str(Path.home() / "ops" / "probes" / "validate_result.py"),
-        str(Path.home() / "ops" / "probes" / "fixtures" / "ok-soc-empty.json"),
-    ],
-    "probe_validate_bad": [
-        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
-        str(Path.home() / "ops" / "probes" / "validate_result.py"),
-        str(Path.home() / "ops" / "probes" / "fixtures" / "bad-apex-greenwash.json"),
-    ],
-    "probe_selftest": [
-        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
-        str(Path.home() / "ops" / "probes" / "selftest.py"),
-    ],
+    # C1b removed: "probe_validate" — executed script under former WRITE_ROOTS
+    # C1b removed: "probe_validate_ok" — executed script under former WRITE_ROOTS
+    # C1b removed: "probe_validate_bad" — executed script under former WRITE_ROOTS
+    # C1b removed: "probe_selftest" — executed script under former WRITE_ROOTS
     "blue_apex_tail": [
         "tail",
         "-n",
@@ -93,39 +129,12 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
         str(Path.home() / "agent-control" / "smoke" / "proof_suite.py"),
         "--offline",
     ],
-    "agent_soc_purple": [
-        "python3",
-        str(Path.home() / "agent-soc" / "purple.py"),
-    ],
-    "agent_soc_hit_table": [
-        "python3",
-        str(Path.home() / "agent-soc" / "hit_table.py"),
-    ],
+    # C1b removed: "agent_soc_purple" — executed script under former WRITE_ROOTS
+    # C1b removed: "agent_soc_hit_table" — executed script under former WRITE_ROOTS
     # agent-soc verification surface (named only — interpreters not on shell.exec)
-    "agent_soc_pytest": [
-        # system python3 may lack pytest; reuse mcp-assure venv (has pytest)
-        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
-        "-m",
-        "pytest",
-        "-q",
-        "--tb=short",
-        str(Path.home() / "agent-soc" / "tests"),
-    ],
-    "agent_soc_agentic_cycle_dry": [
-        "python3",
-        str(Path.home() / "agent-soc" / "cli.py"),
-        "agentic",
-        "cycle",
-        "--dry-run",
-    ],
-    "agent_soc_respond_dry": [
-        "python3",
-        str(Path.home() / "agent-soc" / "cli.py"),
-        "respond",
-        "--dry-run",
-        "--reason",
-        "test",
-    ],
+    # C1b removed: "agent_soc_pytest" — executed script under former WRITE_ROOTS
+    # C1b removed: "agent_soc_agentic_cycle_dry" — executed script under former WRITE_ROOTS
+    # C1b removed: "agent_soc_respond_dry" — executed script under former WRITE_ROOTS
     "agent_control_session": [
         "python3",
         str(Path.home() / "agent-control" / "cli.py"),
@@ -160,10 +169,7 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
         str(Path.home() / "mcp-assure" / "tests"),
     ],
     # Local site preview (loopback static server for ~/portfolio) — visual pass without file://
-    "portfolio_nav_inject": [
-        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
-        str(Path.home() / "portfolio" / "_nav" / "inject.py"),
-    ],
+    # C1b removed: "portfolio_nav_inject" — executed script under former WRITE_ROOTS
     "portfolio_preview_start": [
         str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
         str(Path.home() / "agent-control" / "scripts" / "portfolio_preview.py"),
@@ -180,29 +186,15 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
         "status",
     ],
     # Pages deploy: push portfolio main only (no force). Operator must have approved ship.
-    "portfolio_ship_crown_jewel": [
-        "/bin/bash",
-        str(Path.home() / "portfolio" / "scripts" / "ship_crown_jewel.sh"),
-    ],
-    "portfolio_git_push": [
-        "git",
-        "-C",
-        str(Path.home() / "portfolio"),
-        "push",
-        "origin",
-        "main",
-    ],
+    # C1 removed: "portfolio_ship_crown_jewel" — script/token path was agent-reachable
+    # C1 removed: "portfolio_git_push" — script/token path was agent-reachable
     # session-bus median plane (Grok Build ↔ light clients)
     "session_bus_status": [
         str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
         str(Path.home() / "session-bus" / "cli.py"),
         "status",
     ],
-    "session_bus_token": [
-        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
-        str(Path.home() / "session-bus" / "cli.py"),
-        "token",
-    ],
+    # C1 removed: "session_bus_token" — script/token path was agent-reachable
     "session_bus_prepare_phone": [
         str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
         str(Path.home() / "session-bus" / "scripts" / "prepare_phone_session.py"),
@@ -378,35 +370,13 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
         str(Path.home() / "maw" / "scripts" / "run_install_gate.sh"),
         "status",
     ],
-    "maw_install_gate_clear": [
-        "/bin/bash",
-        str(Path.home() / "maw" / "scripts" / "run_install_gate.sh"),
-        "clear",
-        "--operator-confirm",
-    ],
+    # C1 removed: "maw_install_gate_clear" — script/token path was agent-reachable
 
     # Bridge / leash health (absolute paths — thin PATH safe)
-    "browser_leash_status": [
-        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
-        str(Path.home() / "browser-leash" / "bridge" / "client.py"),
-        "status",
-    ],
-    "browser_leash_restart": [
-        "/bin/bash",
-        str(Path.home() / "browser-leash" / "scripts" / "restart_bridge.sh"),
-    ],
-    "desktop_leash_restart": [
-        "/bin/bash",
-        str(Path.home() / "desktop-leash" / "scripts" / "restart_bridge.sh"),
-    ],
-    "browser_leash_pytest": [
-        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
-        "-m",
-        "pytest",
-        "-q",
-        "--tb=short",
-        str(Path.home() / "browser-leash" / "tests"),
-    ],
+    # C1b removed: "browser_leash_status" — executed script under former WRITE_ROOTS
+    # C1b removed: "browser_leash_restart" — executed script under former WRITE_ROOTS
+    # C1b removed: "desktop_leash_restart" — executed script under former WRITE_ROOTS
+    # C1b removed: "browser_leash_pytest" — executed script under former WRITE_ROOTS
     "open_grok_connectors": [
         "open",
         "-a",
@@ -419,11 +389,7 @@ ALLOW_COMMANDS: dict[str, list[str]] = {
         "Google Chrome",
         "chrome://extensions",
     ],
-    "desktop_leash_status": [
-        str(Path.home() / "mcp-assure" / ".venv" / "bin" / "python"),
-        str(Path.home() / "desktop-leash" / "bridge" / "client.py"),
-        "status",
-    ],
+    # C1b removed: "desktop_leash_status" — executed script under former WRITE_ROOTS
     "agent_control_stack": [
         "python3",
         str(Path.home() / "agent-control" / "cli.py"),
@@ -500,8 +466,11 @@ MAX_COMMIT_MSG = 2000
 
 
 class ShellHandlers:
-    def __init__(self, roots: tuple[Path, ...] | None = None) -> None:
+    def __init__(self, roots: tuple[Path, ...] | None = None, write_roots: tuple[Path, ...] | None = None) -> None:
         self.roots = tuple(r.resolve() for r in (roots or DEFAULT_ROOTS) if r.exists() or True)
+        self.write_roots = tuple(
+            r.resolve() for r in (write_roots or WRITE_ROOTS) if r.exists() or True
+        )
 
     def _resolve_under_root(self, path_str: str) -> Path | dict[str, Any]:
         raw = (path_str or "").strip()
@@ -540,14 +509,89 @@ class ShellHandlers:
             "roots": [str(r) for r in self.roots],
         }
 
+    def _resolve_under_write_root(self, path_str: str) -> Path | dict[str, Any]:
+        """Like _resolve_under_root but confined to WRITE_ROOTS + C1 denylist."""
+        resolved = self._resolve_under_root(path_str)
+        if isinstance(resolved, dict):
+            return resolved
+        # Must also sit under a write root
+        ok_write = False
+        for root in self.write_roots:
+            try:
+                resolved.relative_to(root.resolve())
+                ok_write = True
+                break
+            except ValueError:
+                continue
+        if not ok_write:
+            return {
+                "ok": False,
+                "code": "PATH_OUTSIDE_WRITE_ROOTS",
+                "detail": f"{resolved} not under write roots (C1)",
+                "write_roots": [str(r) for r in self.write_roots],
+                "read_roots": [str(r) for r in self.roots],
+            }
+        denied = _path_is_write_denied(resolved)
+        if denied:
+            return {"ok": False, "code": "WRITE_DENIED_AUTHORITY", "detail": denied}
+        return resolved
+
+    def _atomic_write_text(self, path: Path, content: str) -> dict[str, Any] | None:
+        """Write via O_NOFOLLOW on final component; refuse nlink>1. Returns error dict or None."""
+        import stat as statmod
+
+        parent = path.parent
+        try:
+            parent.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            return {"ok": False, "code": "WRITE_FAIL", "detail": str(e)}
+        # Refuse if existing path is a symlink
+        if path.exists() or path.is_symlink():
+            try:
+                st = path.lstat()
+            except OSError as e:
+                return {"ok": False, "code": "WRITE_FAIL", "detail": str(e)}
+            if statmod.S_ISLNK(st.st_mode):
+                return {"ok": False, "code": "SYMLINK_DENIED", "detail": "refusing write through symlink"}
+            if st.st_nlink > 1:
+                return {"ok": False, "code": "HARDLINK_DENIED", "detail": "st_nlink > 1"}
+        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        try:
+            fd = os.open(str(path), flags, 0o644)
+        except OSError as e:
+            return {"ok": False, "code": "WRITE_FAIL", "detail": f"open: {e}"}
+        try:
+            st = os.fstat(fd)
+            if st.st_nlink > 1:
+                return {"ok": False, "code": "HARDLINK_DENIED", "detail": "st_nlink > 1 after open"}
+            # Confirm realpath still under write root (TOCTOU narrow)
+            real = Path(os.path.realpath(str(path)))
+            denied = _path_is_write_denied(real)
+            if denied:
+                return {"ok": False, "code": "WRITE_DENIED_AUTHORITY", "detail": denied}
+            data = content.encode("utf-8")
+            os.write(fd, data)
+        except OSError as e:
+            return {"ok": False, "code": "WRITE_FAIL", "detail": str(e)}
+        finally:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        return None
+
     def roots_list(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         return {
             "ok": True,
             "code": "SHELL_ROOTS",
             "data": {
                 "roots": [str(r) for r in self.roots],
+                "write_roots": [str(r) for r in self.write_roots],
                 "commands": sorted(ALLOW_COMMANDS),
-                "note": "no ambient shell_exec — named commands only",
+                "note": "C1: read roots vs write_roots split; no ambient shell_exec — named commands only",
+                "native_edit_bypass": "file_edit_tools_native must be false in client config (operator) — plane cannot close native edits alone",
             },
         }
 
@@ -617,7 +661,7 @@ class ShellHandlers:
         does not weaken deny-by-default (writes stay inside the same rooted policy as
         reads).
         """
-        resolved = self._resolve_under_root(str(args.get("path") or ""))
+        resolved = self._resolve_under_write_root(str(args.get("path") or ""))
         if isinstance(resolved, dict):
             return resolved
         content = args.get("content")
@@ -627,7 +671,7 @@ class ShellHandlers:
             return {"ok": False, "code": "CONTENT_TOO_LARGE", "detail": f"max {MAX_WRITE_BYTES} bytes"}
         # never write onto a secret-shaped filename (mirror the read-side fence)
         name = resolved.name.lower()
-        if any(x in name for x in (".pem", ".key", "id_rsa", "credentials", ".env", "secret")):
+        if any(x in name for x in (".pem", ".key", "id_rsa", "credentials", ".env", "secret", "token")):
             return {"ok": False, "code": "SECRET_FILENAME", "detail": "path looks secret-shaped — refused by shell gate"}
         if resolved.exists() and resolved.is_dir():
             return {"ok": False, "code": "IS_DIR", "detail": str(resolved)}
@@ -636,11 +680,9 @@ class ShellHandlers:
             return {"ok": False, "code": "BAD_MODE", "detail": "mode must be overwrite|create"}
         if mode == "create" and resolved.exists():
             return {"ok": False, "code": "EXISTS", "detail": "create mode: file exists"}
-        try:
-            resolved.parent.mkdir(parents=True, exist_ok=True)
-            resolved.write_text(content, encoding="utf-8")
-        except OSError as e:
-            return {"ok": False, "code": "WRITE_FAIL", "detail": str(e)}
+        err = self._atomic_write_text(resolved, content)
+        if err is not None:
+            return err
         return {
             "ok": True,
             "code": "WROTE",
@@ -653,13 +695,13 @@ class ShellHandlers:
         Requires exact one match of old_string unless replace_all=true.
         Same path/secret/size fences as write_file; blocked under FREEZE (not freeze_allow).
         """
-        resolved = self._resolve_under_root(str(args.get("path") or ""))
+        resolved = self._resolve_under_write_root(str(args.get("path") or ""))
         if isinstance(resolved, dict):
             return resolved
         if not resolved.is_file():
             return {"ok": False, "code": "NOT_FILE", "detail": str(resolved)}
         name = resolved.name.lower()
-        if any(x in name for x in (".pem", ".key", "id_rsa", "credentials", ".env", "secret")):
+        if any(x in name for x in (".pem", ".key", "id_rsa", "credentials", ".env", "secret", "token")):
             return {
                 "ok": False,
                 "code": "SECRET_FILENAME",
@@ -697,10 +739,9 @@ class ShellHandlers:
             n = 1
         if len(out_text.encode("utf-8")) > MAX_WRITE_BYTES:
             return {"ok": False, "code": "CONTENT_TOO_LARGE", "detail": f"max {MAX_WRITE_BYTES} bytes"}
-        try:
-            resolved.write_text(out_text, encoding="utf-8")
-        except OSError as e:
-            return {"ok": False, "code": "WRITE_FAIL", "detail": str(e)}
+        err = self._atomic_write_text(resolved, out_text)
+        if err is not None:
+            return err
         return {
             "ok": True,
             "code": "PATCHED",
@@ -779,6 +820,15 @@ class ShellHandlers:
                 return resolved
             if not resolved.is_dir():
                 return {"ok": False, "code": "CWD_NOT_DIR", "detail": str(resolved)}
+            # C1c: fixed C1b NameError (`name` undefined in exec). Only git (hardened
+            # below) may run with a cwd inside an agent-writable root.
+            if exe != "git":
+                for wr in self.write_roots:
+                    try:
+                        resolved.resolve().relative_to(wr)
+                        return {"ok": False, "code": "CWD_IN_WRITE_ROOT", "detail": str(resolved)}
+                    except ValueError:
+                        continue
             cwd = str(resolved)
         else:
             cwd = None
@@ -789,9 +839,18 @@ class ShellHandlers:
             if cwd is None:
                 cwd = str(_PKG_ROOT)
 
+        run_argv = list(argv)
+        if exe == "git":
+            # C1: neutralize hooks / fsmonitor even if .git was somehow writable
+            # C1c: also blank fsmonitor / diff.external; no ext-diff / textconv for diff/log/show
+            run_argv = [argv[0], "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=",
+                        "-c", "diff.external=", argv[1]]
+            if argv[1] in ("diff", "log", "show"):
+                run_argv += ["--no-ext-diff", "--no-textconv"]
+            run_argv += argv[2:]
         try:
             p = subprocess.run(
-                list(argv), cwd=cwd, capture_output=True, text=True, timeout=60, shell=False
+                run_argv, cwd=cwd, capture_output=True, text=True, timeout=60, shell=False
             )
         except subprocess.TimeoutExpired:
             return {"ok": False, "code": "TIMEOUT", "detail": " ".join(argv[:3])}
@@ -848,8 +907,14 @@ class ShellHandlers:
                     continue
                 i += 1
         if sub == "add":
-            # refuse magic pathspecs that escape
+            # refuse magic pathspecs that escape; deny .git writes
             for tok in argv[2:]:
+                if ".git" in Path(tok).parts or tok.startswith(".git"):
+                    return {
+                        "ok": False,
+                        "code": "GIT_DOTGIT_DENIED",
+                        "detail": ".git pathspecs denied (C1)",
+                    }
                 if tok.startswith(":") or tok.startswith("-") and tok not in (
                     "-A",
                     "--all",
@@ -890,6 +955,15 @@ class ShellHandlers:
                 return resolved
             if not resolved.is_dir():
                 return {"ok": False, "code": "CWD_NOT_DIR", "detail": str(resolved)}
+            # C1b: cwd inside an agent-writable root lets `python -m pytest` / `python -m X`
+            # import agent-planted modules (cwd is on sys.path). Only git_* may use it.
+            if not name.startswith("git_"):
+                for wr in self.write_roots:
+                    try:
+                        resolved.resolve().relative_to(wr)
+                        return {"ok": False, "code": "CWD_IN_WRITE_ROOT", "detail": str(resolved)}
+                    except ValueError:
+                        continue
             cwd = str(resolved)
         else:
             # default cwd for git_* → first existing project root
