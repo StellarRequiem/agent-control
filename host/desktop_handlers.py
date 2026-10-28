@@ -149,7 +149,9 @@ class DesktopHandlers:
         body = {"action": action, **extra}
         return http_json(self.base, "/v1/action", body)
 
-    def _gate_app_input(self, app: str | None, kind: str) -> dict[str, Any] | None:
+    def _gate_app_input(
+        self, app: str | None, kind: str, *, count: bool = True
+    ) -> dict[str, Any] | None:
         """Host-side profile gate before leash (leash still enforces allowlist)."""
         if not app:
             return None
@@ -177,8 +179,19 @@ class DesktopHandlers:
                 "detail": f"{app} input {n}/{max_n} this host session",
                 "profile": prof,
             }
-        self._input_counts[app] = n + 1
+        if count:
+            self._input_counts[app] = n + 1
         return None
+
+    def _operator_d4_granted(self, _app: str) -> bool:
+        """Whether an operator-signed D4 grant covers quitting this app.
+
+        d4-session and confirm on the leash require the operator's signature.
+        ``operator_confirm`` is a caller-supplied boolean and is not consulted.
+        This process has no operator signer, so an unsigned quit fails closed
+        instead of being posted as a desktop action.
+        """
+        return False
 
     def status(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         return http_json(self.base, "/v1/status")
@@ -310,12 +323,28 @@ class DesktopHandlers:
 
     def quit(self, args: dict[str, Any]) -> dict[str, Any]:
         app = args["app"]
+        # Profile denylist and allow_quit win even when a later gate would pass.
+        blocked = self._gate_app_input(app, "quit", count=False)
+        if blocked:
+            return blocked
         confirm = args.get("operator_confirm")
         if confirm is not True and confirm != "true" and confirm != 1:
             return {
                 "ok": False,
                 "code": "HUMAN_CONFIRM_REQUIRED",
                 "detail": "desktop.quit requires operator_confirm=true",
+            }
+        # The boolean only records that the caller asked. It does not open
+        # the leash D4 queue and it is not an operator signature.
+        if not self._operator_d4_granted(app):
+            return {
+                "ok": False,
+                "code": "OPERATOR_SIGNATURE_REQUIRED",
+                "detail": (
+                    "desktop.quit requires the operator-signed D4 path; "
+                    "operator_confirm is not a human gate"
+                ),
+                "app": app,
             }
         blocked = self._gate_app_input(app, "quit")
         if blocked:
