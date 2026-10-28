@@ -75,11 +75,15 @@ def test_exempt_recovery(d):
 
 
 def test_expired_and_ttl_cap(d):
-    write(d, 3, ttl=-1)
-    assert ap.effective_policy(policy_dir=d[0])["reason"] == "expired"
+    # L1-L3 have no auto-expiry (0de6bd2): no ttl is fine, and a past ttl is not enforced.
     write(d, 3, ttl=None)
+    assert ap.effective_policy(policy_dir=d[0])["reason"] == "ok"
+    # L4 keeps the expiry requirement and the 1h TTL cap.
+    write(d, 4, ttl=-1)
+    assert ap.effective_policy(policy_dir=d[0])["reason"] == "expired"
+    write(d, 4, ttl=None)
     assert ap.effective_policy(policy_dir=d[0])["reason"] == "elevated_without_expiry"
-    write(d, 3, ttl=10 * 3600, set_at=time.time() - 3601)
+    write(d, 4, ttl=10 * 3600, set_at=time.time() - 3601)
     assert ap.effective_policy(policy_dir=d[0])["level"] == 0
 
 

@@ -181,8 +181,8 @@ def test_handlers_attach_png_without_changing_the_leash_request(tmp_path: Path, 
 
     seen: list[tuple[str, str, dict]] = []
 
-    def fake_http(base: str, url: str, body: dict | None = None, timeout: float = 90.0):
-        seen.append((base, url, dict(body or {})))
+    def fake_post(self, url: str, body: dict | None = None):
+        seen.append((self.base, url, dict(body or {})))
         action = (body or {}).get("action")
         saved = {
             "desktop.screenshot": shot,
@@ -197,7 +197,7 @@ def test_handlers_attach_png_without_changing_the_leash_request(tmp_path: Path, 
             "data": {"path": str(saved), "bytes": saved.stat().st_size},
         }
 
-    monkeypatch.setattr("host.desktop_handlers.http_json", fake_http)
+    monkeypatch.setattr(DesktopHandlers, "_post", fake_post)
     desktop = DesktopHandlers(base="http://127.0.0.1:8757")
 
     full = desktop.screenshot({"out": str(tmp_path / "custom.png")})
