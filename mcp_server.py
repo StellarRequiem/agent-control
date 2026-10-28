@@ -275,13 +275,21 @@ def browser_wait(ms: int = 1000, tab_id: int = 0) -> dict[str, Any]:
 
 @mcp.tool()
 def desktop_apps() -> dict[str, Any]:
-    """List desktop apps (ARM required)."""
+    """List desktop apps (ARM required).
+
+    Apple's iPhone Mirroring app is the process name ``iPhone Mirroring``.
+    The result includes ``data.iphone_mirroring`` so callers do not guess.
+    """
     return _call("desktop.apps")
 
 
 @mcp.tool()
 def desktop_layout() -> dict[str, Any]:
-    """Window layout frames (ARM required). Prefer before clicks."""
+    """Window layout frames (ARM required). Prefer before clicks.
+
+    iPhone Mirroring windows are tagged. Use the frame with desktop.click_window
+    (rel_x/rel_y or local_x/local_y). The phone UI is not in the AX tree.
+    """
     return _call("desktop.layout")
 
 
@@ -289,10 +297,12 @@ def desktop_layout() -> dict[str, Any]:
 def desktop_screenshot(out: str = "") -> dict[str, Any]:
     """Full desktop screenshot (ARM + Screen Recording).
 
-    The PNG stays on disk at result.data.path. result.data.image_png_base64 is
-    the same file as standard base64 when it is within the inline cap (see
-    host.desktop_handlers.MAX_INLINE_PNG_BYTES); larger shots set
-    result.data.image_omitted and keep the path.
+    Prefer desktop_screenshot_window for one app. The PNG stays on disk at
+    result.data.path. result.data.image_png_base64 is the same file as standard
+    base64 when it is within the inline cap (host.desktop_handlers.MAX_INLINE_PNG_BYTES,
+    8_000_000 raw bytes); larger shots set result.data.image_omitted and keep
+    the path. A world-readable copy is result.data.shared_path when publish
+    succeeds. Do not shell_read_file the PNG.
     """
     body: dict[str, Any] = {}
     if out:
@@ -307,16 +317,22 @@ def desktop_focus(app: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def desktop_screenshot_window(app: str, out: str = "") -> dict[str, Any]:
+def desktop_screenshot_window(app: str, out: str = "", title: str = "") -> dict[str, Any]:
     """Screenshot one app window frame (ARM + Screen Recording).
 
     Same inline PNG as desktop_screenshot: result.data.image_png_base64 when
-    the file is within the cap, otherwise result.data.path plus image_omitted.
+    the file is within the 8_000_000-byte cap, otherwise result.data.path plus
+    image_omitted. Also publishes result.data.shared_path (mode 0644 under
+    /Users/Shared/leash-captures/). For the mirrored iPhone pass
+    app=\"iPhone Mirroring\". The phone UI is a framebuffer — click with
+    desktop.click_window rel_x/rel_y, not AX. Do not shell_read_file the PNG.
     """
     body: dict[str, Any] = {"app": app}
     if out:
         # desktop-leash uses `path` for window shots
         body["path"] = out
+    if title:
+        body["title"] = title
     return _call("desktop.screenshot_window", body)
 
 

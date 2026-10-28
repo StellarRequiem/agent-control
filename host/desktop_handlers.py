@@ -9,6 +9,15 @@ from pathlib import Path
 from typing import Any
 
 from host.desktop_signing import SignedDesktopClient
+from host.iphone_mirror import (
+    annotate_apps,
+    annotate_ax,
+    annotate_click,
+    annotate_layout,
+    annotate_screenshot_window,
+    annotate_windows,
+)
+from host.screenshot_image import enrich_screenshot
 
 DESKTOP = "http://127.0.0.1:8757"
 PROFILES = Path(__file__).resolve().parent.parent / "profiles" / "desktop_apps.json"
@@ -192,14 +201,16 @@ class DesktopHandlers:
         return self._get("/v1/status")
 
     def apps(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._action("desktop.apps")
+        return annotate_apps(self._action("desktop.apps"))
 
     def windows(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self._action("desktop.windows")
+        return annotate_windows(self._action("desktop.windows"))
 
     def ax(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
-        return self._action("desktop.ax", max=int(args.get("max") or 40))
+        # Frontmost window only. iPhone Mirroring's phone UI is one empty AXGroup;
+        # annotate_ax records that and does not add nodes.
+        return annotate_ax(self._action("desktop.ax", max=int(args.get("max") or 40)))
 
     def ax_click(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
@@ -221,7 +232,7 @@ class DesktopHandlers:
         }
         if args.get("path"):
             body["path"] = args["path"]
-        return attach_inline_png(self._post("/v1/action", body))
+        return enrich_screenshot(self._post("/v1/action", body))
 
     def cua_observe(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
@@ -235,7 +246,7 @@ class DesktopHandlers:
         body: dict[str, Any] = {"action": "desktop.layout"}
         if args.get("path"):
             body["path"] = args["path"]
-        return self._post("/v1/action", body)
+        return annotate_layout(self._post("/v1/action", body))
 
     def screenshot_window(self, args: dict[str, Any]) -> dict[str, Any]:
         body: dict[str, Any] = {
@@ -245,7 +256,7 @@ class DesktopHandlers:
         }
         if args.get("path"):
             body["path"] = args["path"]
-        return attach_inline_png(self._post("/v1/action", body))
+        return annotate_screenshot_window(enrich_screenshot(self._post("/v1/action", body)))
 
     def click_window(self, args: dict[str, Any]) -> dict[str, Any]:
         body: dict[str, Any] = {
@@ -257,7 +268,7 @@ class DesktopHandlers:
         for k in ("rel_x", "rel_y", "local_x", "local_y"):
             if args.get(k) is not None:
                 body[k] = args[k]
-        return self._post("/v1/action", body)
+        return annotate_click(self._post("/v1/action", body))
 
     def d4_session(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
@@ -274,7 +285,7 @@ class DesktopHandlers:
         body: dict[str, Any] = {"action": "desktop.screenshot"}
         if args.get("out"):
             body["out"] = args["out"]
-        return attach_inline_png(self._post("/v1/action", body))
+        return enrich_screenshot(self._post("/v1/action", body))
 
     def focus(self, args: dict[str, Any]) -> dict[str, Any]:
         app = args["app"]
