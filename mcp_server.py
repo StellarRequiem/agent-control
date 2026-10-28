@@ -221,7 +221,12 @@ def browser_workspace(match: str = "", tab_id: int = 0, snapshot: bool = True) -
 
 @mcp.tool()
 def browser_screenshot(out: str = "", tab_id: int = 0) -> dict[str, Any]:
-    """Capture visible Chrome tab PNG (ARM). Prefer out under ~/ops or /tmp — path returned, not huge dataUrl."""
+    """Capture visible Chrome tab (ARM).
+
+    browser-leash does not hand this host a PNG file, and the extension strips
+    dataUrl before the bridge report, so this result stays metadata. Desktop
+    screenshots return image_png_base64 from the file already on disk.
+    """
     body: dict[str, Any] = {}
     if out:
         body["out"] = out
@@ -282,7 +287,13 @@ def desktop_layout() -> dict[str, Any]:
 
 @mcp.tool()
 def desktop_screenshot(out: str = "") -> dict[str, Any]:
-    """Full desktop screenshot (ARM + Screen Recording). out path recommended under ~/ops."""
+    """Full desktop screenshot (ARM + Screen Recording).
+
+    The PNG stays on disk at result.data.path. result.data.image_png_base64 is
+    the same file as standard base64 when it is within the inline cap (see
+    host.desktop_handlers.MAX_INLINE_PNG_BYTES); larger shots set
+    result.data.image_omitted and keep the path.
+    """
     body: dict[str, Any] = {}
     if out:
         body["out"] = out
@@ -297,7 +308,11 @@ def desktop_focus(app: str) -> dict[str, Any]:
 
 @mcp.tool()
 def desktop_screenshot_window(app: str, out: str = "") -> dict[str, Any]:
-    """Screenshot one app window frame (ARM + Screen Recording)."""
+    """Screenshot one app window frame (ARM + Screen Recording).
+
+    Same inline PNG as desktop_screenshot: result.data.image_png_base64 when
+    the file is within the cap, otherwise result.data.path plus image_omitted.
+    """
     body: dict[str, Any] = {"app": app}
     if out:
         # desktop-leash uses `path` for window shots
