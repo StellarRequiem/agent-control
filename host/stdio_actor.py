@@ -13,6 +13,10 @@ passport module (that change is a separate branch):
 - `receipts/stdio-actors` — one actor id per line. Use this for a stdio-only
   name so the file does not become a bearer secret if HTTP passports land.
 
+``http`` is not a built-in. ``mcp_http.py`` appends that name to
+``stdio-actors`` before it constructs the host, then stamps ``actor=http``.
+Stdio with no flag still starts as ``grok``.
+
 Per-call JSON `actor` / `agent` / `agent_id` fields are not authority.
 """
 
@@ -30,6 +34,11 @@ DEFAULT_RECEIPTS_DIR = ROOT / "receipts"
 
 # Same closed set the HTTP passport roster starts from.
 DEFAULT_ROSTER: tuple[str, ...] = ("grok", "claude", "codex")
+
+# HTTP plane identity. Not a stdio built-in. mcp_http.py admits it through
+# receipts/stdio-actors (the operator extra file) before constructing the host,
+# then passes actor=http. Stdio with no flag still starts as grok.
+HTTP_ACTOR = "http"
 
 ENV_ACTOR = "AGENT_CONTROL_ACTOR"
 STDIO_ROSTER_FILENAME = "stdio-actors"
@@ -107,6 +116,33 @@ def load_stdio_roster(receipts_dir: Path | str | None = None) -> tuple[str, ...]
 
     extras.sort()
     return tuple(DEFAULT_ROSTER) + tuple(extras)
+
+
+def ensure_actor_on_roster(actor: str, receipts_dir: Path | str | None = None) -> str:
+    """Admit ``actor`` via ``receipts/stdio-actors`` if the roster lacks it.
+
+    Same file operators use for a stdio-only extra name. The token file is not
+    read or written: a bearer must not become the admission record. An illegal
+    id raises UnknownActorError and does not touch the file. A name already
+    admitted (built-in, passport filename, or an existing line) is left as-is.
+    """
+    name = normalize_actor_name(actor)
+    roster = load_stdio_roster(receipts_dir)
+    if not is_actor_id(name):
+        raise UnknownActorError(name or (actor or ""), roster)
+    if name in roster:
+        return name
+    d = Path(receipts_dir) if receipts_dir else DEFAULT_RECEIPTS_DIR
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / STDIO_ROSTER_FILENAME
+    try:
+        existing = path.read_text(encoding="utf-8") if path.is_file() else ""
+    except OSError:
+        existing = ""
+    prefix = "" if (not existing or existing.endswith("\n")) else "\n"
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(f"{prefix}{name}\n")
+    return validate_actor(name, receipts_dir=d)
 
 
 def validate_actor(actor: str, *, receipts_dir: Path | str | None = None) -> str:

@@ -71,8 +71,7 @@ rm -f ~/agent-control/FREEZE ~/mcp-assure/FREEZE
 #   plane_receipts_rotate force=true
 ```
 
-mcp-assure re-syncs tip under flock on every append (multi-writer safe).  
-Stale MCP processes without that code still need **MCP reload** after upgrade.
+Upstream mcp-assure re-syncs the tip under `flock` on every append (multi-writer safe). PyPI `mcp-assure` 0.3.2, which CI installs, has only the in-process lock. `AssuredPlaneHost` wraps `append` with the same sidecar `<receipts>.lock` and a tip reload when the installed `ReceiptChain.append` does not already flock, and it serializes `call` with an `RLock` so HTTP threads cannot interleave a repair with an append. A library build that already flocks is not wrapped again (a second `flock` in one thread deadlocks on Linux). Stale MCP processes without that code still need **MCP reload** after upgrade.
 
 
 ## Proof (post-restart live matrix)

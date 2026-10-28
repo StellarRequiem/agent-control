@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib
 import json
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +42,7 @@ from host.stdio_actor import (  # noqa: E402
 )
 from host.cua_loop import CuaController  # noqa: E402
 from host.profile_mode import profile_summary  # noqa: E402
+from host.receipt_lock import install_receipt_file_lock  # noqa: E402
 
 PACK_PATH = ROOT / "packs" / "local_planes.json"
 RECEIPTS = ROOT / "receipts" / "plane-host.jsonl"
@@ -234,6 +236,7 @@ class AssuredPlaneHost:
         desktop_base: str = DESKTOP,
         actor: str | None = None,
         roster_dir: Path | str | None = None,
+        actor_binding: str = "stdio_process",
     ) -> None:
         receipts_path = Path(receipts_path or RECEIPTS)
         receipts_path.parent.mkdir(parents=True, exist_ok=True)
@@ -249,6 +252,13 @@ class AssuredPlaneHost:
             "grok" if actor is None else actor,
             receipts_dir=self.roster_dir,
         )
+        # Stdio leaves this as stdio_process. The HTTP plane passes http_process
+        # so status does not describe that process as a stdio launch.
+        self.actor_binding = actor_binding or "stdio_process"
+        # Same-thread re-entry: cua.observe / cua.step call back into host.call.
+        # A non-reentrant Lock deadlocks those tools. Other threads still queue,
+        # so HTTP workers cannot interleave a chain-repair append swap.
+        self._call_lock = threading.RLock()
         freeze_allow = FREEZE_ALLOW
         chain_repair = frozenset(
             {
@@ -369,6 +379,9 @@ class AssuredPlaneHost:
             adaptive=adaptive,
             auto_freeze=True,
         )
+        # Sidecar flock + tip re-sync when the installed ReceiptChain has no
+        # file lock (PyPI 0.3.2). A library that already flocks is not wrapped.
+        install_receipt_file_lock(self._dispatcher.engine.chain)
         self.cua = CuaController(self.call)
 
     def _cua_start(self, a: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -532,10 +545,11 @@ class AssuredPlaneHost:
         )
 
     def call(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
-        self._maybe_reload_pack()
-        if self._chain_repair_bypass(name):
-            return self._call_chain_repair(name, arguments)
-        return self._dispatcher.call_tool(self._bound_call(name, arguments))
+        with self._call_lock:
+            self._maybe_reload_pack()
+            if self._chain_repair_bypass(name):
+                return self._call_chain_repair(name, arguments)
+            return self._dispatcher.call_tool(self._bound_call(name, arguments))
 
     def _chain_repair_bypass(self, name: str) -> bool:
         """True when a repair tool must not append onto a broken receipt file.
@@ -591,8 +605,9 @@ class AssuredPlaneHost:
                 chain.append = original_append
 
     def authorize_only(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
-        self._maybe_reload_pack()
-        return self._dispatcher.authorize_only(self._bound_call(name, arguments))
+        with self._call_lock:
+            self._maybe_reload_pack()
+            return self._dispatcher.authorize_only(self._bound_call(name, arguments))
 
     def _plane_unfreeze(self, _args: dict[str, Any] | None = None) -> dict[str, Any]:
         """Clear FREEZE files (allowed during freeze for recovery without native shell)."""
@@ -713,6 +728,7 @@ class AssuredPlaneHost:
         from mcp_assure.receipts import ReceiptChain
 
         self._dispatcher.engine.chain = ReceiptChain(str(self.receipts_path))
+        install_receipt_file_lock(self._dispatcher.engine.chain)
 
     def _detect_mediated_shell_config(self) -> dict[str, Any]:
         return detect_mediated_shell_config()
@@ -770,8 +786,9 @@ class AssuredPlaneHost:
             },
             "actors": {
                 # Process actor for this host. Stdio sets it once at startup.
+                # The HTTP plane sets actor=http and binding=http_process.
                 "current": self.actor,
-                "binding": "stdio_process",
+                "binding": self.actor_binding,
                 "roster": list(self.roster),
                 "spoofable_ignored": ["actor", "agent", "agent_id"],
                 "grok": "agent-control MCP (this host)",
