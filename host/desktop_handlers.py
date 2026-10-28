@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,107 @@ from host.http_util import http_json
 
 DESKTOP = "http://127.0.0.1:8757"
 PROFILES = Path(__file__).resolve().parent.parent / "profiles" / "desktop_apps.json"
+
+# Inline PNG ceiling for screenshot tool results. The leash still writes the
+# full file, and the existing path/bytes fields stay. 8_000_000 raw bytes is
+# about 10.7 million base64 characters: enough for a typical single-display
+# screencapture, and under common MCP message ceilings. A larger file sets
+# data.image_omitted and leaves the bytes on disk at data.path.
+MAX_INLINE_PNG_BYTES = 8_000_000
+
+_PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+
+
+def _png_path(result: dict[str, Any]) -> str:
+    data = result.get("data")
+    if isinstance(data, dict):
+        path = data.get("path")
+        if isinstance(path, str) and path.strip():
+            return path.strip()
+    path = result.get("path")
+    if isinstance(path, str) and path.strip():
+        return path.strip()
+    return ""
+
+
+def _png_dimensions(header: bytes) -> tuple[int, int] | None:
+    """Width and height from a PNG IHDR, or None if the header is not a PNG."""
+    if len(header) < 24 or not header.startswith(_PNG_MAGIC) or header[12:16] != b"IHDR":
+        return None
+    width = int.from_bytes(header[16:20], "big")
+    height = int.from_bytes(header[20:24], "big")
+    if width <= 0 or height <= 0:
+        return None
+    return width, height
+
+
+def attach_inline_png(
+    result: dict[str, Any],
+    *,
+    max_bytes: int = MAX_INLINE_PNG_BYTES,
+) -> dict[str, Any]:
+    """Copy a successful screenshot result and add base64 PNG bytes.
+
+    Reads the PNG the leash already saved (``data.path``, or a top-level
+    ``path``). Does not remove or rewrite that file. A non-success result, or
+    one with no path, is returned unchanged. Over ``max_bytes``,
+    ``data.image_omitted`` names the cap and the bytes stay on disk.
+    """
+    if not isinstance(result, dict) or result.get("ok") is not True:
+        return result
+    path = _png_path(result)
+    if not path:
+        return result
+
+    out = dict(result)
+    raw_data = result.get("data")
+    data = dict(raw_data) if isinstance(raw_data, dict) else {}
+    out["data"] = data
+    file = Path(path)
+
+    try:
+        size = file.stat().st_size
+    except OSError as exc:
+        data["image_error"] = f"png read failed: {exc}"
+        return out
+    if not file.is_file():
+        data["image_error"] = "png read failed: not a regular file"
+        return out
+
+    try:
+        with file.open("rb") as fh:
+            if size > max_bytes:
+                header = fh.read(24)
+                raw: bytes | None = None
+            else:
+                raw = fh.read()
+                header = raw[:24]
+    except OSError as exc:
+        data["image_error"] = f"png read failed: {exc}"
+        return out
+
+    dims = _png_dimensions(header)
+    if dims is None:
+        data["image_error"] = "saved file is not a PNG"
+        return out
+    if data.get("width") is None:
+        data["width"] = dims[0]
+    if data.get("height") is None:
+        data["height"] = dims[1]
+
+    if raw is None or len(raw) > max_bytes:
+        reported = size if raw is None else len(raw)
+        data["image_omitted"] = (
+            f"png is {reported} bytes; inline base64 cap is {max_bytes} bytes "
+            f"(about {max_bytes * 4 // 3} base64 characters). "
+            "The file remains at data.path."
+        )
+        return out
+
+    if not data.get("mime"):
+        data["mime"] = "image/png"
+    data["image_png_base64"] = base64.b64encode(raw).decode("ascii")
+    return out
 
 
 class DesktopHandlers:
@@ -102,7 +204,7 @@ class DesktopHandlers:
         }
         if args.get("path"):
             body["path"] = args["path"]
-        return http_json(self.base, "/v1/action", body)
+        return attach_inline_png(http_json(self.base, "/v1/action", body))
 
     def cua_observe(self, args: dict[str, Any] | None = None) -> dict[str, Any]:
         args = args or {}
@@ -126,7 +228,7 @@ class DesktopHandlers:
         }
         if args.get("path"):
             body["path"] = args["path"]
-        return http_json(self.base, "/v1/action", body)
+        return attach_inline_png(http_json(self.base, "/v1/action", body))
 
     def click_window(self, args: dict[str, Any]) -> dict[str, Any]:
         body: dict[str, Any] = {
@@ -155,7 +257,7 @@ class DesktopHandlers:
         body: dict[str, Any] = {"action": "desktop.screenshot"}
         if args.get("out"):
             body["out"] = args["out"]
-        return http_json(self.base, "/v1/action", body)
+        return attach_inline_png(http_json(self.base, "/v1/action", body))
 
     def focus(self, args: dict[str, Any]) -> dict[str, Any]:
         app = args["app"]
