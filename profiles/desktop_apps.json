@@ -268,6 +268,15 @@
       "allow_quit": false,
       "allow_ax_click": false,
       "notes": "Observe/focus only — no privacy deep path automation"
+    },
+    "iPhone Mirroring": {
+      "max_input_per_session": 80,
+      "allow_type": true,
+      "allow_click": true,
+      "allow_press": true,
+      "allow_quit": false,
+      "allow_ax_click": false,
+      "notes": "Apple iPhone Mirroring (Continuity framebuffer). AX is one empty AXGroup — drive with desktop.click_window rel_x/rel_y, read with desktop.screenshot_window. Not on the hard denylist."
     }
   },
   "denylist_hard": [
